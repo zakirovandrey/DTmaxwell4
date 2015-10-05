@@ -8,18 +8,18 @@ from ctypes import *
 from math import *
 import sys
 import os
-import DTgeo
-GridNx = DTgeo.cvar.GridNx
-GridNy = DTgeo.cvar.GridNy
-GridNz = DTgeo.cvar.GridNz
-dx=DTgeo.cvar.ds
-dz=DTgeo.cvar.dv
-dy=DTgeo.cvar.da
-dt=DTgeo.cvar.dt
+import DTmxw
+GridNx = DTmxw.cvar.GridNx
+GridNy = DTmxw.cvar.GridNy
+GridNz = DTmxw.cvar.GridNz
+dx=DTmxw.cvar.ds
+dz=DTmxw.cvar.dv
+dy=DTmxw.cvar.da
+dt=DTmxw.cvar.dt
 
 center  = [ GridNx/2*dx, GridNy/2*dy, GridNz/2*dz]
 
-SS = DTgeo.cvar.shotpoint
+SS = DTmxw.cvar.shotpoint
 #SS.wavelength=0.6;
 SS.srcXs, SS.srcXv, SS.srcXa = center[0],center[1],center[2];
 SS.BoxMs, SS.BoxPs = SS.srcXs-10*dx, SS.srcXs+10*dx; 
@@ -32,5 +32,5 @@ SS.set(0,0,0)
 
 SS.tStop = 0#boxDiagLength/2/cL+8/(SS.w/2)+10*dt # 5000*dt; # ((BoxPs-BoxMs)+(BoxPa-BoxMa)+(BoxMv-BoxPv))/c+2*M_PI/Omega;
 
-DTgeo.cvar.Tsteps=100*(10 if GridNy>200 else 100)
-DTgeo._main(sys.argv)
+DTmxw.cvar.Tsteps=100#*(10 if GridNy>200 else 100)
+DTmxw._main(sys.argv)

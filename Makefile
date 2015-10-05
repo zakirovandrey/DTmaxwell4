@@ -95,20 +95,20 @@ ALL_LDFLAGS   := --linker-options="$(LDFLAGS) $(EXTRA_LDFLAGS)"
 # Target rules
 all: build
 
-DTgeo_wrap.cxx: geo.i params.h py_consts.h texmodel.cuh 
-	swig -python -c++ -o DTgeo_wrap.cxx $<
-DTgeo_wrap.o: DTgeo_wrap.cxx params.h py_consts.h texmodel.cuh 
+DTmxw_wrap.cxx: mxw.i params.h py_consts.h texmodel.cuh 
+	swig -python -c++ -o DTmxw_wrap.cxx $<
+DTmxw_wrap.o: DTmxw_wrap.cxx params.h py_consts.h texmodel.cuh 
 	$(GCC) $(INCLUDES) $(CCFLAGS) -c $< -fPIC -I/usr/include/python/ -I/usr/include/python2.7/ -I/usr/include/python2.6/ -I./python2.6/ -o $@
-#_DTgeo.so: DTgeo_wrap.o cudaDTgeo.so
+#_DTmxw.so: DTmxw_wrap.o cudaDTmxw.so
 ifdef USE_AIVLIB_MODEL
-_DTgeo.so: DTgeo_wrap.o cudaDTgeo.so spacemodel/src/space_model.o spacemodel/src/middle_model.o
-	$(GCC) $(INCLUDES) $(CCFLAGS) -Wl,-rpath=./ -L./ $(LDFLAGS) $< cudaDTgeo.so -o $@ -shared
+_DTmxw.so: DTmxw_wrap.o cudaDTmxw.so spacemodel/src/space_model.o spacemodel/src/middle_model.o
+	$(GCC) $(INCLUDES) $(CCFLAGS) -Wl,-rpath=./ -L./ $(LDFLAGS) $< cudaDTmxw.so -o $@ -shared
 else
-_DTgeo.so: DTgeo_wrap.o cudaDTgeo.so 
-	$(GCC) $(INCLUDES) $(CCFLAGS) -L./ $(LDFLAGS) $< cudaDTgeo.so -o $@ -shared
+_DTmxw.so: DTmxw_wrap.o cudaDTmxw.so 
+	$(GCC) $(INCLUDES) $(CCFLAGS) -L./ $(LDFLAGS) $< cudaDTmxw.so -o $@ -shared
 endif
 
-build: DTgeo _DTgeo.so
+build: DTmxw _DTmxw.so
 
 kerTFSF.o: kerTFSF.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh defs.h signal.hpp
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
@@ -128,7 +128,7 @@ ker%.o: %.inc.cu
 $(obj_files): cuda_math.h params.h py_consts.h defs.h texmodel.cuh 
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $(subst .o,.inc.cu,$@)
 
-dt.o: DTgeo.cu diamond.cu im3D.hpp im2D.h cuda_math.h params.h py_consts.h texmodel.cuh init.h signal.hpp window.hpp
+dt.o: DTmxw.cu diamond.cu im3D.hpp im2D.h cuda_math.h params.h py_consts.h texmodel.cuh init.h signal.hpp window.hpp
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
 
 TEXMODEL_DEPS := texmodel.cu texmodel.cuh params.h py_consts.h cuda_math.h
@@ -139,26 +139,26 @@ endif
 
 texmodel.o: $(TEXMODEL_DEPS)
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
-DTgeo: texmodel.o dt.o im3D.o kerTFSF.o kerTFSF_pmls.o kerITFSF.o kerITFSF_pmls.o $(obj_files)
+DTmxw: texmodel.o dt.o im3D.o kerTFSF.o kerTFSF_pmls.o kerITFSF.o kerITFSF_pmls.o $(obj_files)
 ifndef USE_AIVLIB_MODEL
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(ALL_LDFLAGS) $(GENCODE_FLAGS) $(LDFLAGS) -o $@ $+ $(LIBRARIES)
 endif
-	$(EXEC) $(NVCC) $(NVCCFLAGS) $(ALL_LDFLAGS) $(GENCODE_FLAGS) $(LDFLAGS) -o cudaDTgeo.so $+ $(LIBRARIES) --shared
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(ALL_LDFLAGS) $(GENCODE_FLAGS) $(LDFLAGS) -o cudaDTmxw.so $+ $(LIBRARIES) --shared
 
 im3D.o: im3D.cu im3D.hpp cuda_math.h fpal.h im2D.h
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
 
-cudaDTgeo.so: DTgeo
-#DTgeo: texmodel.o dt.o im3D.o kerTFSF.o kerTFSF_pmls.o $(obj_files)
+cudaDTmxw.so: DTmxw
+#DTmxw: texmodel.o dt.o im3D.o kerTFSF.o kerTFSF_pmls.o $(obj_files)
 
 generate:
 	python genDT.py
 
 run: build
-	$(EXEC) ./DTgeo
+	$(EXEC) ./DTmxw
 
 clean:
-	$(EXEC) rm -f dt.o texmodel.o im3D.o ker*.o DTgeo _DTgeo.so cudaDTgeo.so DTgeo_wrap* DTgeo.py DTgeo.pyc
+	$(EXEC) rm -f dt.o texmodel.o im3D.o ker*.o DTmxw _DTmxw.so cudaDTmxw.so DTmxw_wrap* DTmxw.py DTmxw.pyc
 
 clobber: clean
 

@@ -1,4 +1,4 @@
-%module DTgeo
+%module DTmxw
 %include <argcargv.i>
 
 %apply (int ARGC, char **ARGV) { (int argc, char *argv[]) }
