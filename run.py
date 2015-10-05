@@ -32,5 +32,5 @@ SS.set(0,0,0)
 
 SS.tStop = 0#boxDiagLength/2/cL+8/(SS.w/2)+10*dt # 5000*dt; # ((BoxPs-BoxMs)+(BoxPa-BoxMa)+(BoxMv-BoxPv))/c+2*M_PI/Omega;
 
-DTmxw.cvar.Tsteps=100#*(10 if GridNy>200 else 100)
+DTmxw.cvar.Tsteps=100*(10 if GridNy>200 else 100)
 DTmxw._main(sys.argv)
