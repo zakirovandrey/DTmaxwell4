@@ -13,7 +13,7 @@ typedef float ftype;
 
 //#define ANISO_TR 2
 
-#define NDev 2
+#define NDev 1
 #define NasyncNodes 1
 #define GPUDIRECT_RDMA
 

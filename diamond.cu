@@ -415,11 +415,11 @@ int calcStep(){
   double yee_cells = 0;
   double overhead=0;
   #ifndef TEST_RATE
-  yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*Na)*Np;
+  yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*((Na+1-NDev)*NasyncNodes+1-NasyncNodes))*Np;
   overhead = window.RAMcopytime/window.GPUcalctime;
   printf("Step %d /node %d/ subnode %d/: Time %9.09f ms |overhead %3.03f%% | ", parsHost.iStep, window.node, window.subnode, calcTime, 100*overhead);
 //  for(int idev=0;idev<NDev;idev++) printf("%3.03f%% ", 100*window.disbal[idev]/window.GPUcalctime);
-  printf("|rate %9.09f GYee_cells/sec |isTFSF=%d \n", 1.e-9*yee_cells/(calcTime*1.e-3), (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
+  printf("|rate %9.09f GYee_cells/sec |total grid %ld cells | isTFSF=%d \n", 1.e-9*yee_cells/(calcTime*1.e-3), (unsigned long long)yee_cells/Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
   #else
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*((Na-2)/TEST_RATE))*torreNum;
   printf("Step %d: Time %9.09f ms |overhead %3.03f%% |rate %9.09f %d %d %d %d (GYee cells/sec,Np,Na,Nv,Ntime) |isTFSF=%d \n", parsHost.iStep, calcTime, 100*overhead, 1.e-9*yee_cells/(calcTime*1.e-3), Np,Na,Nv,Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
