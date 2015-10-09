@@ -15,6 +15,7 @@ typedef float ftype;
 
 #define NDev 2
 #define NasyncNodes 1
+#define GPUDIRECT_RDMA
 
 //#define USE_AIVLIB_MODEL
 //#define MPI_ON
