@@ -69,7 +69,7 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   is_I[0]=1;
   iym=iyp; Nblk=0; while(iyp<Npmly/2) { iyp++; Nblk++; } if(Nblk>0) is_Sb[0]=1; Syb=iym; SybBlk=Nblk; 
   for(int idev=0,nextY=0; idev<NDev; idev++) {
-    nextY+=NStripe[idev]; if(idev==NDev-1) nextY-=Npmly/2;
+    nextY+=NStripe[idev]; if(idev==NDev-1) nextY-=max(1,Npmly/2);
     if(idev!=0) {
     // Dtorre1 only
       if(iyp<nextY && even==1) is_oneL[idev]=1;
@@ -199,7 +199,7 @@ template<int even> inline void DtorreBloch(int ix, int tiy, int Nt, int t0, bool
   cudaStream_t stPMLp; CHECK_ERROR( cudaStreamCreate(&stPMLp) );
   cudaStream_t stD   ; CHECK_ERROR( cudaStreamCreate(&stD) );
 
-  int iym=0, iyp=0;
+  int iym=0, iyp=0, idev=0;
   int Nblk=Na/NyBloch;
   if(Nblk>0 && even==0 && isTFSF ) IFPMLS(torreTFSF0,Nblk,Nth,0,stD   ,(ix,tiy,Nt,t0))
   if(Nblk>0 && even==1 && isTFSF ) IFPMLS(torreTFSF1,Nblk,Nth,0,stD   ,(ix,tiy,Nt,t0))
