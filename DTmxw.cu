@@ -592,6 +592,7 @@ float read_float(char* str) {
 void add_sensor(int ix, int iy, int iz);
 
 bool help_only=false, test_only=false;
+int Tsteps=Ntime*100;
 int _main(int argc, char** argv) {
   #ifdef MPI_ON
   MPI_Init(&argc,&argv);
@@ -652,7 +653,6 @@ try {
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
 
   if(test_only) {
-    int Tsteps=Ntime*100;
     if(GridNy>500) Tsteps=Ntime*10;
     for(int i=0; i<Tsteps/Ntime; i++) {
 //    while(true) {
