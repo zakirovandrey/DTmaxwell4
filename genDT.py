@@ -16,7 +16,7 @@ def genfunc(Yt):
     fl = open("ker%s%s.inc.cu"%(Yt,("","_pmls")[spml]), 'w')
     print >>fl, '#include "params.h"'
     if Yt[-4:]=='TFSF' or Yt[0]=="I": print >>fl, '#include "signal.h"'
-    if Yt=="D" and spml==0: print >>fl, 'const int Nzb = 640*4/FTYPESIZE;'
+    if Yt=="D" and spml==0: print >>fl, 'const int Nzb = 768*4/FTYPESIZE;'
     for Dcase in 0,1:
       minB = "Nzb/Nz+Nz/(Nzb+1)" if Yt=="D" and spml==0 else "1"
       print >>fl, '__global__ void __launch_bounds__(Nz,%s) %storre%s%d (int ix, int y0, int Nt, int t0) {'%(minB,("","PMLS")[spml],Yt,Dcase)
