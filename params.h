@@ -290,7 +290,7 @@ struct TwoDomJ {
 };
 struct TwoDomE {
     ftype fld[3][dispNz];
-  ftype fldPML[3][Npmlz];
+  //ftype fldPML[3][Npmlz];
 };
 struct DiamondRagDisp{
   TwoDomE Em[NDT*NDT];

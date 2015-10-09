@@ -115,13 +115,13 @@ extern cudaArray* index_texArray;
 //#define TEXCOFFE(x,y,z) coffs[tex3D(index_tex, z,(y+Na*NDT)%(Na*NDT),x)].deps
 //#define TEXCOFFE(x,y,z) dtdrd24
 #define TEXCOFFS(nind,xt,yt,z,I,h)  ;
-#define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = 1.0f;
-#define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = 1.0f;
-#define TEXCOFFTz(nind,xt,yt,z,I,h) ArrcoffT[nind] = 1.0f;
+#define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = 1;
+#define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = 1;
+#define TEXCOFFTz(nind,xt,yt,z,I,h) ArrcoffT[nind] = 1;
 #ifdef COFFS_DEFAULT
-#define TEXCOFFVx(nind,xt,yt,z,I,h) index = 0; ArrcoffV[nind] = 1.0f;
-#define TEXCOFFVy(nind,xt,yt,z,I,h) index = 0; ArrcoffV[nind] = 1.0f;
-#define TEXCOFFVz(nind,xt,yt,z,I,h) index = 0; ArrcoffV[nind] = 1.0f;
+#define TEXCOFFVx(nind,xt,yt,z,I,h) index = 0; ArrcoffV[nind] = 1;
+#define TEXCOFFVy(nind,xt,yt,z,I,h) index = 0; ArrcoffV[nind] = 1;
+#define TEXCOFFVz(nind,xt,yt,z,I,h) index = 0; ArrcoffV[nind] = 1;
 #define ISDISP(xt,yt,z) 0
 #define TEXCOFFDISP(xt,yt,z) DispCoffs[0]
 #else//COFFS not DEFAULT
@@ -134,9 +134,9 @@ extern texture<char, cudaTextureType2D> index_tex;
 #define TEXCOFFDISP(xt,yt,z) DispCoffs[tex2D(index_tex, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt))]
 #else//not USE_TEX_2D
 extern texture<char, cudaTextureType3D> index_tex;
-#define TEXCOFFVx(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = 1.0f;//coffs[index].depsXX; AnisoE[nind] = coffs[index];
-#define TEXCOFFVy(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = 1.0f;//coffs[index].depsYY; AnisoE[nind] = coffs[index];
-#define TEXCOFFVz(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = 1.0f;//coffs[index].depsZZ; AnisoE[nind] = coffs[index];
+#define TEXCOFFVx(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = 1;//coffs[index].depsXX; AnisoE[nind] = coffs[index];
+#define TEXCOFFVy(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = 1;//coffs[index].depsYY; AnisoE[nind] = coffs[index];
+#define TEXCOFFVz(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = 1;//coffs[index].depsZZ; AnisoE[nind] = coffs[index];
 #define ISDISP(xt,yt,z) coffs[tex3D(index_tex, z,(yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt))].isDisp
 #define TEXCOFFDISP(xt,yt,z) DispCoffs[tex3D(index_tex, z,(yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt))]
 #endif//USE_TEX_2D

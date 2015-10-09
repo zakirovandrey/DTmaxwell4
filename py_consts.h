@@ -13,12 +13,12 @@ typedef float ftype;
 
 //#define ANISO_TR 2
 
-#define NDev 1
+#define NDev 2
 #define NasyncNodes 1
 
 //#define USE_AIVLIB_MODEL
 //#define MPI_ON
-#define TEST_RATE 1
+//#define TEST_RATE 1
 #define USE_WINDOW
 #define COFFS_DEFAULT
 //#define CLICK_BOOM
