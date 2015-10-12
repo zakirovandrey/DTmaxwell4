@@ -46,6 +46,9 @@ struct Window {
     #ifdef MPI_ON
     MPI_Comm_rank (MPI_COMM_WORLD, &node);   subnode = node%NasyncNodes; node/= NasyncNodes;
     MPI_Comm_size (MPI_COMM_WORLD, &Nprocs); Nprocs/= NasyncNodes;
+    #ifdef DROP_DATA
+    parsHost.drop.open(parsHost.iStep);
+    #endif//DROP_DATA
     #endif
     dataInd  = parsHost.dataInd;
     data     = parsHost.data;
@@ -66,6 +69,11 @@ struct Window {
     //------------set_texture(parsHost.index_arr, Np-Ns);
     CHECK_ERROR(cudaDeviceSynchronize());
     Textime+=t1.gettime();
+  }
+  void finalize(){ 
+    #ifdef DROP_DATA
+    parsHost.drop.close(); 
+    #endif//DROP_DATA
   }
   template<int even> inline void Dtorre(int ix, int Nt, int t0, double disbal[NDev], bool isPMLs=false, bool isTFSF=false);
   inline void Dtorres(int ix, int Nt, int t0, double disbal[NDev], bool isPMLs=false, bool isTFSF=false);

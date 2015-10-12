@@ -220,7 +220,6 @@ MPI_Status status;
 int flag;
 mpi_message Window::mes[8];
 //#define BLOCK_SEND
-#define MPI_TEST
 //#define MPI_NUDGE
 //#define USE_MPI_THREADING
 
@@ -259,7 +258,7 @@ int calcStep(){
 //  CHECK_ERROR( cudaDeviceSetSharedMemConfig ( cudaSharedMemBankSizeEightByte ) );
   if(parsHost.iStep==0) printf("Starting...\n");
   cuTimer t0;
-  int torreNum=0;
+  int torreNum=0; double dropTime=0;
   CHECK_ERROR(cudaDeviceSynchronize());
   #ifdef TEST_RATE
   for(int ix=Ns-Ntime; ix>0; ix--) {
@@ -269,6 +268,7 @@ int calcStep(){
     torreD1<<<(Na-2)/block_spacing,Nv>>>(ix, 1, Ntime, 0); cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
     torreNum++;
   }
+  cuTimer tdrop; parsHost.drop.drop(0,Np,parsHost.data,parsHost.iStep); dropTime+= tdrop.gettime();
   #else
   Window window; window.prepare();
   int node_shift=0; for(int inode=0; inode<window.node; inode++) node_shift+= mapNodeSize[inode]; node_shift-= Ns*window.node;
@@ -298,7 +298,7 @@ int calcStep(){
       //MPI_Irecv(&window.dataPMLa[wleftM*Npmly], Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node-1, 2+1, MPI_COMM_WORLD, &reqRm_pml);
     }
   }
-  #endif
+  #endif//MPI_ON
   while(window.w0+Ns>=0) {
 //    window.Memcopy();
     #ifdef MPI_ON
@@ -333,6 +333,10 @@ int calcStep(){
     }
     #else//BLOCK_SEND not def
     if( true /*!(parsHost.wleft>=nR && window.node!=window.Nprocs-1 || parsHost.wleft<nL-Ns && window.node!=0)*/ ) {
+      #ifdef DROP_DATA
+      if(parsHost.wleft==nR-Ns-Ns-1) { cuTimer tdrop; parsHost.drop.drop( nsize-Ns            ,nsize   ,window.data,parsHost.iStep); dropTime+= tdrop.gettime(); }
+      if(parsHost.wleft==nL-Ns-1   ) { cuTimer tdrop; parsHost.drop.drop((window.node==0)?0:Ns,nsize-Ns,window.data,parsHost.iStep); dropTime+= tdrop.gettime(); }
+      #endif
       bool doSend[2] = {1,1}; bool doRecv[2] = {1,1};
       #ifdef MPI_TEST
       if(parsHost.iStep  -window.node<0) { doSend[0]=0; doSend[1]=0; }
@@ -396,6 +400,7 @@ int calcStep(){
     #endif//MPI_ON
     window.synchronize();
   }
+  window.finalize();
 //    printf("ix=%d\n",ix);
 /*    int zones[] = {0, Npmlx/2, tfsfSm/dx/NDT-2, tfsfSp/dx/NDT+2, Ns-Npmlx/2, Ns}; int izon=0;
     Dtorres(max(ix,zones[izon]), min(Ntime,zones[izon+1]-ix), max(zones[izon]-ix,0), true );
@@ -409,7 +414,7 @@ int calcStep(){
 
     izon++;
     Dtorres(max(ix,zones[izon]), min(Ntime,zones[izon+1]-ix), max(zones[izon]-ix,0), true );*/
-  #endif
+  #endif//TEST_RATE
 
   double calcTime=t0.gettime();
   double yee_cells = 0;
@@ -417,12 +422,12 @@ int calcStep(){
   #ifndef TEST_RATE
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*((Na+1-NDev)*NasyncNodes+1-NasyncNodes))*Np;
   overhead = window.RAMcopytime/window.GPUcalctime;
-  printf("Step %d /node %d/ subnode %d/: Time %9.09f ms |overhead %3.03f%% | ", parsHost.iStep, window.node, window.subnode, calcTime, 100*overhead);
+  printf("Step %d /node %d/ subnode %d/: Time %9.09f ms |drop %3.03f%% | ", parsHost.iStep, window.node, window.subnode, calcTime, 100*dropTime/calcTime);
 //  for(int idev=0;idev<NDev;idev++) printf("%3.03f%% ", 100*window.disbal[idev]/window.GPUcalctime);
   printf("|rate %9.09f GYee_cells/sec |total grid %ld cells | isTFSF=%d \n", 1.e-9*yee_cells/(calcTime*1.e-3), (unsigned long long)yee_cells/Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
   #else
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*((Na-2)/TEST_RATE))*torreNum;
-  printf("Step %d: Time %9.09f ms |overhead %3.03f%% |rate %9.09f %d %d %d %d (GYee cells/sec,Np,Na,Nv,Ntime) |isTFSF=%d \n", parsHost.iStep, calcTime, 100*overhead, 1.e-9*yee_cells/(calcTime*1.e-3), Np,Na,Nv,Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
+  printf("Step %d: Time %9.09f ms |drop %3.03f%% |rate %9.09f %d %d %d %d (GYee cells/sec,Np,Na,Nv,Ntime) |isTFSF=%d \n", parsHost.iStep, calcTime, 100*dropTime/calcTime, 1.e-9*yee_cells/(calcTime*1.e-3), Np,Na,Nv,Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
   #endif
   #ifdef MPI_ON
   double AllCalcTime;

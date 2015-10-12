@@ -261,10 +261,11 @@ void GeoParamsHost::set(){
   if(Np!=Ns) { printf("Error: if not defined USE_WINDOW Np must be equal Ns\n"); exit(-1); }
   #endif//USE_WINDOW
 
-  int node=0, Nprocs=1;
+  node=0; subnode=0; int Nprocs=1;
   #ifdef MPI_ON
-  MPI_Comm_rank (MPI_COMM_WORLD, &node);   node/= NasyncNodes;
+  MPI_Comm_rank (MPI_COMM_WORLD, &node);   subnode=node%NasyncNodes; node/= NasyncNodes;
   MPI_Comm_size (MPI_COMM_WORLD, &Nprocs); 
+  if(node==0) printf("Total MPI tasks: %d\n", Nprocs);
   #endif
   if(Nprocs%NasyncNodes!=0) { printf("Error: mpi procs must be dividable by NasyncNodes\n"); exit(-1); }
   Nprocs/= NasyncNodes;
@@ -293,7 +294,8 @@ void GeoParamsHost::set(){
   struct stat st = {0};
 
   if (stat(dir->c_str(), &st) == -1)  mkdir(dir->c_str(), 0700);
-
+  
+  if(node==0) print_info();
   if(node==0) printf("Grid size: %dx%d Rags /%dx%dx%d Yee_cells/, TorreH=%d\n", Np, Na, Np*NDT,Na*NDT,Nv, Ntime);
   if(node==0) printf("Window size: %d, copy-shift step %d \n", Ns, Window::NTorres );
   if(gridNx%NDT!=0) { printf("Error: gridNx must be dividable by %d\n", NDT); exit(-1); }
@@ -517,11 +519,10 @@ void init_material(char* &index_arr) {
   #endif
   {
     float x=ix*0.5*dx, y=iy*0.5*dy, z=iz*0.5*dz;
-    float Xc=0.5*Ns*NDT*dx, Yc=0.5*Na*NDT*dy, Zc=0.5*Nv*dz;
+    float Xc=0.5*Np*NDT*dx, Yc=0.5*Na*NasyncNodes*NDT*dy, Zc=0.5*Nv*dz;
     if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= Rparticle*Rparticle ) p[0]=IndGold;//1./(n2*n2);
-    if( (z-Zc)*(z-Zc)<= Rparticle*Rparticle ) p[0]=IndGold;//1./(n2*n2);
+//    if( (z-Zc)*(z-Zc)<= Rparticle*Rparticle ) p[0]=IndGold;//1./(n2*n2);
     else p[0]=IndAir;
-     p[0]=IndAir;
 /*    bool isGold=0;
     int nperiod=0;
     for (nperiod=0;nperiod<8; nperiod++) { isGold = isGold || 

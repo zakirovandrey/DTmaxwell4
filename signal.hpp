@@ -17,7 +17,7 @@ struct PlaneTFSF{
   __device__ PlaneTFSF(const ftype _t, const ftype _x, const ftype _y, const ftype _z) {
     const ftype dxs=dx*0.5,dxa=dy*0.5,dxv=dz*0.5;
     
-    x = dxs*(_x); y=dxa*_y; z = dxv*_z; ftype t=_t*dt;
+    x = dxs*(_x); y=dxa*(_y+pars.subnode*Na*2*NDT); z = dxv*_z; ftype t=_t*dt;
     ftype phiz=src.phi;//(_z-1.0)/2*1.0/180.0*M_PI;
     //phiz=pars.inc_ang;//1*1/180.0*M_PI;
     //if(fabs(_z-Nz)<0.1*dz) phiz=0*M_PI/6.; else phiz=M_PI/2.;
@@ -26,7 +26,7 @@ struct PlaneTFSF{
     //ftype delay = fabs(2*Na*NDT*dy*sin(phiz));
     if(dz!=FLT_MAX) phase = src.w*t-kx*(x-src.BoxMs)-ky*(y-src.BoxMa)-kz*(z-src.BoxMv);
     else            phase = src.w*t-kx*(x-src.BoxMs)-ky*(y-src.BoxMa);
-    ftype Yc=Na*NDT*dy*0.5;
+    ftype Yc=Na*NasyncNodes*NDT*dy*0.5;
     ftype Zc=Nz*dz*0.5;
     ftype waist = 0.30;
     ftype gaussEnv = exp(-(y-Yc)*(y-Yc)/(waist*waist));//-(z-Zc)*(z-Zc)/(0.3*Zc*0.3*Zc));
@@ -69,6 +69,12 @@ void TFSFsrc::check(){
     printf("TF/SF source: Shotpoint(s,v,a) = %g,%g,%g\n", srcXs, srcXv, srcXv);
     printf("TF/SF source: wavelength = %g, kEnv=%g, tStop=%g\n", wavelength,kEnv,tStop);
     printf("TF/SF stops after %d steps\n", int(tStop/dt));
+    if(BoxMs<0        ) printf("BoxMs<0: incorrect results are possible\n");
+    if(BoxMa<0        ) printf("BoxMa<0: incorrect results are possible\n");
+    if(BoxMv<0        ) printf("BoxMv<0: incorrect results are possible\n");
+    if(BoxPs>Np*NDT*ds            ) printf("BoxPs>gridX: incorrect results are possible\n");
+    if(BoxPa>Na*NasyncNodes*NDT*da) printf("BoxPa>gridY: incorrect results are possible\n");
+    if(BoxPv>Nv*dv                ) printf("BoxPv>gridZ: incorrect results are possible\n");
 }
 
 __device__ __noinline__ ftype SrcTFSF_Vx(const int s, const int v, const int a,  const ftype tt){
@@ -90,10 +96,11 @@ __device__ __noinline__ ftype SrcTFSF_Tz(const int s, const int v, const int a, 
   PlaneTFSF src(tt, s,a,v); return src.getHz();
 }
 __device__ __noinline__ bool inSF(const int _s, const int _a, const int _v) { 
-  ftype s = _s*0.5*dx, a=_a*0.5*dy, v=_v*0.5*dz;
+  ftype s = _s*0.5*dx, a=(_a+pars.subnode*Na*2*NDT)*0.5*dy, v=_v*0.5*dz;
   if(dz==FLT_MAX) v=FLT_MAX/2; 
   //return !(s>tfsfSm && s<tfsfSp && a>tfsfAm && a<tfsfAp && v>tfsfVm && v<tfsfVp); 
-  return !(s>src.BoxMs && s<src.BoxPs && a>src.BoxMa && a<src.BoxPa && v>src.BoxMv && v<src.BoxPv); 
+  bool into = (s>src.BoxMs && s<src.BoxPs && a>src.BoxMa && a<src.BoxPa && v>src.BoxMv && v<src.BoxPv); 
+  return !into;
 }
 __device__ ftype  SrcTFSF_Sx(const int s, const int v, const int a,  const ftype tt) {return 0;};
 __device__ ftype  SrcTFSF_Sy(const int s, const int v, const int a,  const ftype tt) {return 0;};

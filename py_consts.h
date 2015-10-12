@@ -15,10 +15,12 @@ typedef float ftype;
 
 #define NDev 1
 #define NasyncNodes 1
-#define GPUDIRECT_RDMA
+//#define GPUDIRECT_RDMA
 
+//#define DROP_DATA
 //#define USE_AIVLIB_MODEL
 //#define MPI_ON
+//#define MPI_TEST
 //#define TEST_RATE 1
 #define USE_WINDOW
 #define COFFS_DEFAULT
@@ -36,7 +38,7 @@ const int GridNx=3*Np;
 #ifndef NA
 const int GridNy=gridNy;
 #else 
-const int GridNy=3*NA;
+const int GridNy=3*NA*NasyncNodes;
 #endif//NA
 #ifndef NV
 const int GridNz=gridNz;
@@ -50,8 +52,8 @@ const int NyBloch=1;//200;
 #undef USE_TEX_2D
 
 const int Npmlx=2*1;//2*24;
-const int Npmly=0*2*1;//24;
-const int Npmlz=0*2*16;//128;
+const int Npmly=2*1;//24;
+const int Npmlz=2*16;//128;
 
 const ftype ds=0.005, da=0.005, dv=0.005, dt=0.001;
 

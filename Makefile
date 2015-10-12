@@ -12,7 +12,7 @@ ARCH := sm_50
 else ifeq ($(COMP),D)
 ARCH := sm_50
 else ifeq ($(COMP),ion)
-ARCH := sm_35
+ARCH := sm_20
 else ifeq ($(COMP),supermic)
 ARCH := sm_52
 else
@@ -128,7 +128,7 @@ ker%.o: %.inc.cu
 $(obj_files): cuda_math.h params.h py_consts.h defs.h texmodel.cuh 
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $(subst .o,.inc.cu,$@)
 
-dt.o: DTmxw.cu diamond.cu im3D.hpp im2D.h cuda_math.h params.h py_consts.h texmodel.cuh init.h signal.hpp window.hpp
+dt.o: DTmxw.cu diamond.cu drop.cu im3D.hpp im2D.h cuda_math.h params.h py_consts.h texmodel.cuh init.h signal.hpp window.hpp
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
 
 TEXMODEL_DEPS := texmodel.cu texmodel.cuh params.h py_consts.h cuda_math.h

@@ -252,7 +252,7 @@ struct DiamondRagPML{
 
 //const int tfsfH=1000*Ny;
 //const ftype xsrc=Nx/2*dx, ysrc=40*dy, zsrc=Nz/2*dz;
-const ftype Rparticle=0.050;
+const ftype Rparticle=0.500;
 //const ftype tfsfSm=(Ns/2*NDT-3)*dx-Rparticle, tfsfSp=(Ns/2*NDT+3)*dx+Rparticle; 
 //const ftype tfsfAm=(Npmly/2*NDT+3)*dy, tfsfAp=(Na-Npmly/2-3)*NDT*dy;
 //const ftype tfsfVm=(Npmlz/2+3)*dz, tfsfVp=(Nz-Npmlz/2-3)*dz; 
@@ -329,6 +329,8 @@ struct GeoParams{
   DiamondRag* rdma_recv_buf;
   ModelTexs texs;
   SeismoDrops drop;
+  
+  int node,subnode;
 
   std::vector<Sensor>* sensors;
 // Think about members!!!  WTF??
@@ -410,6 +412,51 @@ inline void DiamondRag::SendMPIp(const int mpirank, int ixrag){ //diamonds 1 and
                                &parsHost.rags[idev  ][(ixrag%Ns+1)*NStripe[idev  ]-1].Vi[0].fld[0],
                                sizeof(TwoDomV)*(NDT*NDT/2  )+sizeof(ftype)*1*Nz, cudaMemcpyDeviceToDevice, stDo[idev]) );
 */
+
+inline void print_info(){
+  printf("Devices: %d\n", NDev);
+  printf("NasyncNodes: %d\n", NasyncNodes);
+  #ifdef GPUDIRECT_RDMA
+  printf("GPUDirect RDMA +\n");
+  #else
+  printf("GPUDirect RDMA -\n");
+  #endif
+  #ifdef USE_AIVLIB_MODEL
+  printf("USE_AIVLIB +\n");
+  #else
+  printf("USE_AIVLIB -\n");
+  #endif
+  #ifdef MPI_ON
+  printf("MPI_ON +\n");
+  #else
+  printf("MPI_OFF\n");
+  #endif
+  #ifdef MPI_TEST
+  printf("MPI_TEST +\n");
+  #else
+  printf("MPI_TEST -\n");
+  #endif
+  #ifdef TEST_RATE
+  printf("TEST_RATE: %d\n", TEST_RATE);
+  #else
+  printf("TEST_RATE -\n");
+  #endif
+  #ifdef USE_WINDOW
+  printf("USE_WINDOW +\n");
+  #else
+  printf("USE_WINDOW -\n");
+  #endif
+  #ifdef COFFS_DEFAULT
+  printf("COFFS_DEFAULT +\n");
+  #else
+  printf("COFFS_DEFAULT -\n");
+  #endif
+  #ifdef USE_TEX_2D
+  printf("USE_TEX_2D +\n");
+  #else
+  printf("USE_TEX_2D -\n");
+  #endif
+}
 
 #include "sensor.h"
 
