@@ -12,7 +12,7 @@ ARCH := sm_50
 else ifeq ($(COMP),D)
 ARCH := sm_50
 else ifeq ($(COMP),ion)
-ARCH := sm_20
+ARCH := sm_35
 else ifeq ($(COMP),supermic)
 ARCH := sm_52
 else

@@ -438,6 +438,10 @@ inline void print_info(){
   #endif
   #ifdef TEST_RATE
   printf("TEST_RATE: %d\n", TEST_RATE);
+  if(NDev!=1 || NasyncNodes!=1) { printf("Error: Test_Rate works only for non-mpi NDev=1 and NasyncNodes=1\n"); exit(-1);}
+  #ifdef MPI_ON
+  printf("Error: Test_Rate works only for non-mpi\n"); exit(-1);
+  #endif
   #else
   printf("TEST_RATE -\n");
   #endif
