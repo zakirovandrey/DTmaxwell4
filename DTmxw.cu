@@ -343,6 +343,7 @@ void GeoParamsHost::set(){
            size_xzPMLs*NStripe[NDev-1]/(1024.*1024.), 
            szPMLa                      /(1024.*1024.)  );
   }
+  size_t freemem[NDev], totalmem[NDev];
   for(int idev=0; idev<NDev; idev++) {
     CHECK_ERROR( cudaSetDevice(idev) );
     CHECK_ERROR( cudaMalloc( (void**)&(ragsInd  [idev]), size_xzModel*NStripe[idev]) );
@@ -364,6 +365,8 @@ void GeoParamsHost::set(){
     #endif
     if(idev==NDev-1)
     CHECK_ERROR( cudaMemset(ragsPMLa     , 0,                     szPMLa) );
+    CHECK_ERROR( cudaMemGetInfo(&freemem[idev], &totalmem[idev]));
+    printf("Node/subnode %3d/%d : device %d: GPU memory free %.2fM of %.2fM\n", node, subnode, idev, freemem[idev]/(1024.*1024.), totalmem[idev]/(1024.*1024.) );
   }
   CHECK_ERROR( cudaSetDevice(0) );
 
