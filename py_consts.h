@@ -52,8 +52,8 @@ const int NyBloch=1;//200;
 #undef USE_TEX_2D
 
 const int Npmlx=2*1;//2*24;
-const int Npmly=2*1;//24;
-const int Npmlz=2*16;//128;
+const int Npmly=0*2*1;//24;
+const int Npmlz=0*2*16;//128;
 
 const ftype ds=0.005, da=0.005, dv=0.005, dt=0.001;
 
