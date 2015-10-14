@@ -313,7 +313,7 @@ void ModelRag::set(int x, int y) {
     #if TEX_MODEL_TYPE==1
     for(int i=0;i<4        ;i++) for(int iz=0;iz<Nz;iz++) I[i][iz]=0;
     #endif
-    for(int i=0;i<32;i++) for(int iz=0;iz<Nz;iz++) { h[i][iz].x=0; h[i][iz].y=0; }
+    //for(int i=0;i<32;i++) for(int iz=0;iz<Nz;iz++) { h[i][iz].x=0; h[i][iz].y=0; }
   // set values from aivModel
   // remember about yshift for idev>0
     int idev=0; int ym=0;

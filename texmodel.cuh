@@ -26,7 +26,7 @@ struct __align__(16) ModelRag{
   int I[4][Nz];
   #endif
   //htype h[NDT*NDT*7+1][Nz];
-  htype h[32][Nz];
+  //htype h[32][Nz];
   int3 check_bounds(const int3 &v) {
     int3 ret=v;
     if(v.x<0) ret.x=0; else if(v.x>=Np*NDT*2) ret.x=Np*NDT*2-1;
