@@ -420,10 +420,11 @@ int calcStep(){
   #ifndef TEST_RATE
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*((Na+1-NDev)*NasyncNodes+1-NasyncNodes))*Np;
   overhead = window.RAMcopytime/window.GPUcalctime;
-  printf("Step %d /node %d/ subnode %d/: Time %9.09f ms |drop %3.03f%% | ", parsHost.iStep, window.node, window.subnode, calcTime, 100*dropTime/calcTime);
+  printf("Step %d /node %d/ subnode %d/: Time %9.09f ms |drop %3.03f%% ||rate %9.09f GYee_cells/sec |total grid %ld cells | isTFSF=%d\n",
+  parsHost.iStep, window.node, window.subnode, calcTime, 100*dropTime/calcTime, 
+  1.e-9*yee_cells/(calcTime*1.e-3), yee_cells/Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
 //  for(int idev=0;idev<NDev;idev++) printf("%3.03f%% ", 100*window.disbal[idev]/window.GPUcalctime);
-  printf("|rate %9.09f GYee_cells/sec |total grid %ld cells | isTFSF=%d \n", 1.e-9*yee_cells/(calcTime*1.e-3), yee_cells/Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
-//  printf("disbal0=%g disbal1=%g\n", 1.e3*window.disbal[0], 1.e3*window.disbal[1]);
+  printf("       |waitings %5.05f",1.e3*window.disbal[0]); for(int idev=1; idev<NDev; idev++) printf(", %5.05f", 1.e3*window.disbal[idev]); printf("\n");
   #else
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*((Na-2)/TEST_RATE))*torreNum;
   printf("Step %d: Time %9.09f ms |drop %3.03f%% |rate %9.09f %d %d %d %d (GYee cells/sec,Np,Na,Nv,Ntime) |isTFSF=%d \n", parsHost.iStep, calcTime, 100*dropTime/calcTime, 1.e-9*yee_cells/(calcTime*1.e-3), Np,Na,Nv,Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
