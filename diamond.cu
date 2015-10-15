@@ -52,11 +52,9 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   const int Nth=Nv; 
   double tt1 = omp_get_wtime();
   CHECK_ERROR( cudaSetDevice(0) );
-  cudaStream_t stPMLbot; CHECK_ERROR( cudaStreamCreate(&stPMLbot) );
-  cudaStream_t stPMLtop; CHECK_ERROR( cudaStreamCreate(&stPMLtop) );
+  cudaStream_t stPMLbot; CHECK_ERROR( cudaStreamCreate(&stPMLbot) ); cudaStream_t stI; CHECK_ERROR( cudaStreamCreate(&stI   ) );
   cudaStream_t stDm[NDev],stDo[NDev]; for(int i=0;i<NDev;i++) { if(i!=0) CHECK_ERROR( cudaSetDevice(i) ); CHECK_ERROR( cudaStreamCreate(&stDm[i]) ); CHECK_ERROR( cudaStreamCreate(&stDo[i]) ); }
-  cudaStream_t stI   ; CHECK_ERROR( cudaStreamCreate(&stI   ) );
-  cudaStream_t stX   ; CHECK_ERROR( cudaStreamCreate(&stX   ) );
+  cudaStream_t stPMLtop; CHECK_ERROR( cudaStreamCreate(&stPMLtop) ); cudaStream_t stX; CHECK_ERROR( cudaStreamCreate(&stX   ) );
   cudaStream_t stP   ; if(even==0) { cudaSetDevice(NDev-1); CHECK_ERROR( cudaStreamCreate(&stP   ) ); } else
                        if(even==1) { cudaSetDevice(0     ); CHECK_ERROR( cudaStreamCreate(&stP   ) ); }
   CHECK_ERROR( cudaSetDevice(0) );
@@ -417,14 +415,15 @@ int calcStep(){
   #endif//TEST_RATE
 
   double calcTime=t0.gettime();
-  double yee_cells = 0;
+  unsigned long int yee_cells = 0;
   double overhead=0;
   #ifndef TEST_RATE
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*((Na+1-NDev)*NasyncNodes+1-NasyncNodes))*Np;
   overhead = window.RAMcopytime/window.GPUcalctime;
   printf("Step %d /node %d/ subnode %d/: Time %9.09f ms |drop %3.03f%% | ", parsHost.iStep, window.node, window.subnode, calcTime, 100*dropTime/calcTime);
 //  for(int idev=0;idev<NDev;idev++) printf("%3.03f%% ", 100*window.disbal[idev]/window.GPUcalctime);
-  printf("|rate %9.09f GYee_cells/sec |total grid %ld cells | isTFSF=%d \n", 1.e-9*yee_cells/(calcTime*1.e-3), (unsigned long long)yee_cells/Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
+  printf("|rate %9.09f GYee_cells/sec |total grid %ld cells | isTFSF=%d \n", 1.e-9*yee_cells/(calcTime*1.e-3), yee_cells/Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
+//  printf("disbal0=%g disbal1=%g\n", 1.e3*window.disbal[0], 1.e3*window.disbal[1]);
   #else
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*((Na-2)/TEST_RATE))*torreNum;
   printf("Step %d: Time %9.09f ms |drop %3.03f%% |rate %9.09f %d %d %d %d (GYee cells/sec,Np,Na,Nv,Ntime) |isTFSF=%d \n", parsHost.iStep, calcTime, 100*dropTime/calcTime, 1.e-9*yee_cells/(calcTime*1.e-3), Np,Na,Nv,Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
