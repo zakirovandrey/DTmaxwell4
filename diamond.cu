@@ -168,7 +168,8 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   CHECK_ERROR( cudaStreamSynchronize(stI   ) );
   CHECK_ERROR( cudaStreamSynchronize(stX   ) );
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamSynchronize(stDo[i]) );
-  for(int i=0;i<NDev;i++) { double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[i]) ); disbal[i]+=omp_get_wtime()-tt; }
+  int firsti=parsHost.iStep%NDev; double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[firsti]) ); disbal[0]+=omp_get_wtime()-tt;
+  for(int j=1;j<NDev;j++) { int i=(j+parsHost.iStep)%NDev; double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[i]) ); disbal[j]+=omp_get_wtime()-tt; }
   CHECK_ERROR( cudaStreamDestroy(stPMLbot) );
   CHECK_ERROR( cudaStreamDestroy(stPMLtop) );
   CHECK_ERROR( cudaStreamDestroy(stI   ) ); 
@@ -424,7 +425,7 @@ int calcStep(){
   parsHost.iStep, window.node, window.subnode, calcTime, 100*dropTime/calcTime, 
   1.e-9*yee_cells/(calcTime*1.e-3), yee_cells/Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
 //  for(int idev=0;idev<NDev;idev++) printf("%3.03f%% ", 100*window.disbal[idev]/window.GPUcalctime);
-  printf("       |waitings %5.05f",1.e3*window.disbal[0]); for(int idev=1; idev<NDev; idev++) printf(", %5.05f", 1.e3*window.disbal[idev]); printf("\n");
+  printf("         |waitings%d %5.05f",(parsHost.iStep)%NDev,1.e3*window.disbal[0]); for(int idev=1; idev<NDev; idev++) printf(", %5.05f", 1.e3*window.disbal[idev]); printf("\n");
   #else
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*((Na-2)/TEST_RATE))*torreNum;
   printf("Step %d: Time %9.09f ms |drop %3.03f%% |rate %9.09f %d %d %d %d (GYee cells/sec,Np,Na,Nv,Ntime) |isTFSF=%d \n", parsHost.iStep, calcTime, 100*dropTime/calcTime, 1.e-9*yee_cells/(calcTime*1.e-3), Np,Na,Nv,Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
