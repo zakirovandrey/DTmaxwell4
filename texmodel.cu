@@ -50,7 +50,7 @@ void ModelTexs::init(){
     get_texture_size(texN[ind].x, texN[ind].y, texN[ind].z);
     #else
     // My own texN
-    texN[ind].x  = Np/2+1;
+    texN[ind].x  = Np/Ns+1;
     texN[ind].y  = Nz/32+1;
     texN[ind].z  = Nh  ;
     tex0[ind]  = 0     ;//in_Yee_cells
