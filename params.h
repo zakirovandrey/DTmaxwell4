@@ -416,6 +416,11 @@ inline void DiamondRag::SendMPIp(const int mpirank, int ixrag){ //diamonds 1 and
 inline void print_info(){
   printf("Devices: %d\n", NDev);
   printf("NasyncNodes: %d\n", NasyncNodes);
+  #ifdef USE_DOUBLE
+  printf("Using double FP precision\n");
+  #else
+  printf("Using single FP precision\n");
+  #endif
   #ifdef GPUDIRECT_RDMA
   printf("GPUDirect RDMA +\n");
   #else
