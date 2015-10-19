@@ -271,7 +271,7 @@ void GeoParamsHost::set(){
   Nprocs/= NasyncNodes;
   mapNodeSize = new int[Nprocs];
   int accSizes=0;
-  for(int i=0; i<Nprocs; i++) mapNodeSize[i] = Np/Nprocs+Ns; 
+  mapNodeSize[0] = Np/Nprocs+Ns/2; for(int i=1; i<Nprocs; i++) mapNodeSize[i] = Np/Nprocs+Ns;
   int sums=0; for(int i=0; i<Nprocs-1; i++) sums+= mapNodeSize[i]-Ns; mapNodeSize[Nprocs-1]=Np-sums;
   for(int i=0; i<Nprocs; i++) {
     if(node==i) printf("X-size=%d rags on node %d\n", mapNodeSize[i], i);
@@ -296,6 +296,7 @@ void GeoParamsHost::set(){
   if (stat(dir->c_str(), &st) == -1)  mkdir(dir->c_str(), 0700);
   
   if(node==0) print_info();
+  if(node==0) printf("Full %d Big steps\n", Tsteps/Ntime);
   if(node==0) printf("Grid size: %dx%d Rags /%dx%dx%d Yee_cells/, TorreH=%d\n", Np, Na, Np*NDT,Na*NDT,Nv, Ntime);
   if(node==0) printf("Window size: %d, copy-shift step %d \n", Ns, Window::NTorres );
   if(gridNx%NDT!=0) { printf("Error: gridNx must be dividable by %d\n", NDT); exit(-1); }
@@ -639,6 +640,7 @@ try {
   if(type_diag_flag>=1) printf("Настройка опций визуализации по умолчанию\n");
   //imHost.reset();
   cudaTimer tm; tm.start();
+  if(GridNy>50) Tsteps=Ntime*10;
   parsHost.set();
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
   copy2dev( parsHost, pars );
@@ -657,7 +659,6 @@ try {
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
 
   if(test_only) {
-    if(GridNy>500) Tsteps=Ntime*10;
     for(int i=0; i<Tsteps/Ntime; i++) {
 //    while(true) {
       tm.start();
