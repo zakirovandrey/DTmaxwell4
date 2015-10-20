@@ -58,6 +58,9 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   cudaStream_t stP   ; if(even==0) { cudaSetDevice(NDev-1); CHECK_ERROR( cudaStreamCreate(&stP   ) ); } else
                        if(even==1) { cudaSetDevice(0     ); CHECK_ERROR( cudaStreamCreate(&stP   ) ); }
   CHECK_ERROR( cudaSetDevice(0) );
+  cuTimer ttPMLtop(stPMLtop), ttI(stI), ttDm[NDev];
+  cuTimer ttPMLbot(stPMLbot), ttX(stX), ttDo[NDev], ttP(stP);
+  for(int i=0;i<NDev;i++) { ttDm[i].init(stDm[i]); ttDo[i].init(stDo[i]); }
 
   int iym=0, iyp=0; 
   int Nblk=0;   iyp++;
@@ -156,11 +159,20 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   
   CHECK_ERROR( cudaSetDevice(0) );
 
+  ttPMLtop.record(); ttI.record(); for(int i=0;i<NDev;i++) ttDm[i].record();
+  ttPMLbot.record(); ttX.record(); for(int i=0;i<NDev;i++) ttDo[i].record();
+  ttP.record();
+
+  float copytime=0;
   if(!doneMemcopy) {
+    CHECK_ERROR(cudaEventRecord(copyEventStart, streamCopy));
     if(even==0) MemcopyDtH(ix4copy);
     if(even==1) MemcopyHtD(ix4copy);
+    CHECK_ERROR(cudaEventRecord(copyEventEnd, streamCopy));
     CHECK_ERROR( cudaStreamSynchronize(streamCopy) ); if(even==1) doneMemcopy=true;
+    CHECK_ERROR( cudaEventElapsedTime(&copytime, copyEventStart, copyEventEnd) ); timerCopy+= copytime;
   }
+  
   CHECK_ERROR( cudaStreamSynchronize(stP   ) );
   if(NasyncNodes>1) ampi_exch.exch(even, ix, t0, Nt, node*NasyncNodes+subnode);
   CHECK_ERROR( cudaStreamSynchronize(stPMLbot) ); 
@@ -170,6 +182,15 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamSynchronize(stDo[i]) );
   int firsti=parsHost.iStep%NDev; double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[firsti]) ); disbal[0]+=omp_get_wtime()-tt;
   for(int j=1;j<NDev;j++) { int i=(j+parsHost.iStep)%NDev; double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[i]) ); disbal[j]+=omp_get_wtime()-tt; }
+
+  timerPMLtop+= ttPMLtop.gettime_rec(); timerI+= ttI.gettime_rec(); for(int i=0;i<NDev;i++) timerDm[i]+= ttDm[i].gettime_rec();
+  timerPMLbot+= ttPMLbot.gettime_rec(); timerX+= ttX.gettime_rec(); for(int i=0;i<NDev;i++) timerDo[i]+= ttDo[i].gettime_rec();
+  timerP     += ttP.gettime_rec();
+  
+  float calctime = max(ttPMLtop.diftime,max(ttPMLbot.diftime,max(ttI.diftime,max(ttX.diftime,ttP.diftime))));
+  for(int i=0;i<NDev;i++) calctime=max(calctime,max(ttDm[i].diftime,ttDo[i].diftime));
+  timerExec+= max(copytime, calctime);
+
   CHECK_ERROR( cudaStreamDestroy(stPMLbot) );
   CHECK_ERROR( cudaStreamDestroy(stPMLtop) );
   CHECK_ERROR( cudaStreamDestroy(stI   ) ); 
@@ -426,6 +447,9 @@ int calcStep(){
   1.e-9*yee_cells/(calcTime*1.e-3), NDT*Np,NDT*((Na+1-NDev)*NasyncNodes+1-NasyncNodes),Nv,yee_cells/Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
 //  for(int idev=0;idev<NDev;idev++) printf("%3.03f%% ", 100*window.disbal[idev]/window.GPUcalctime);
   printf("         |waitings%d %5.05f",(parsHost.iStep)%NDev,1.e3*window.disbal[0]); for(int idev=1; idev<NDev; idev++) printf(", %5.05f", 1.e3*window.disbal[idev]); printf("\n");
+  for(int idev=0; idev<NDev; idev++) printf("         |timers(Step,node,subnode,device): %d %d %d %d | PMLbot PMLtop I X Do Dmi P Copy Exec:| %.02f %.02f %.02f %.02f %.02f %.02f %.02f %.02f %.02f\n",
+                                       parsHost.iStep,window.node,window.subnode,idev,
+                                       window.timerPMLbot, window.timerPMLtop, window.timerI, window.timerX, window.timerDo[idev], window.timerDm[idev], window.timerP, window.timerCopy, window.timerExec);
   #else
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*((Na-2)/TEST_RATE))*torreNum;
   printf("Step %d: Time %9.09f ms |drop %3.03f%% |rate %9.09f %d %d %d %d (GYee cells/sec,Np,Na,Nv,Ntime) |isTFSF=%d \n", parsHost.iStep, calcTime, 100*dropTime/calcTime, 1.e-9*yee_cells/(calcTime*1.e-3), Np,Na,Nv,Ntime, (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );

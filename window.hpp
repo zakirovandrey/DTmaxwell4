@@ -31,12 +31,17 @@ struct Window {
   double GPUcalctime, RAMcopytime, Textime;
   double disbal[NDev];
   cudaStream_t streamCopy;
+  double timerPMLtop, timerI, timerDm[NDev];
+  double timerPMLbot, timerX, timerDo[NDev];
+  double timerP, timerCopy, timerExec;
+  cudaEvent_t copyEventStart, copyEventEnd;
+
   int tDnum;
   bool doneMemcopy;
   int node, subnode, Nprocs;
   static mpi_message mes[8];
   Window(): GPUcalctime(0),RAMcopytime(0),Textime(0),tDnum(0),doneMemcopy(0) { CHECK_ERROR( cudaStreamCreate(&streamCopy) ); for(int idev=0;idev<NDev;idev++) disbal[idev]=0; }
-  ~Window() { CHECK_ERROR( cudaStreamDestroy(streamCopy) ); }
+  ~Window() { CHECK_ERROR( cudaStreamDestroy(streamCopy) ); CHECK_ERROR( cudaEventDestroy(copyEventStart) ); CHECK_ERROR( cudaEventDestroy(copyEventEnd) ); }
   void prepare(){
     x0 = Ns-Ntime-NTorres; w0=Np+x0; parsHost.wleft=Np; parsHost.GPUx0=w0-x0; copy2dev(parsHost, pars);
     if(Ns-Ntime<2*NTorres) { printf("Error: Ns-Ntime<2*NTorres | %d-%d<2*%d \n", Ns,Ntime,NTorres); exit(-1); }
@@ -69,6 +74,13 @@ struct Window {
     //------------set_texture(parsHost.index_arr, Np-Ns);
     CHECK_ERROR(cudaDeviceSynchronize());
     Textime+=t1.gettime();
+
+    timerPMLtop=0; timerI=0; for(int i=0;i<NDev;i++) timerDm[i]=0;
+    timerPMLbot=0; timerX=0; for(int i=0;i<NDev;i++) timerDo[i]=0;
+    timerP=0; timerCopy=0; timerExec=0;
+    CHECK_ERROR( cudaEventCreate(&copyEventStart) );
+    CHECK_ERROR( cudaEventCreate(&copyEventEnd  ) );
+    
   }
   void finalize(){ 
     #ifdef DROP_DATA
@@ -117,9 +129,14 @@ struct Window {
       } }
       if(iw+Ntime+1-Ns>=nR && node!=Nprocs-1 || iw+Ntime+1<nL && node!=0) doneMemcopy=true;
       if(!doneMemcopy) {
+        CHECK_ERROR(cudaEventRecord(copyEventStart, streamCopy));
         if(!isOnlyMemcopy || isOnlyMemcopyDtH) MemcopyDtH(ix);
         if(!isOnlyMemcopy || isOnlyMemcopyHtD) MemcopyHtD(ix); 
+        CHECK_ERROR(cudaEventRecord(copyEventEnd, streamCopy));
         CHECK_ERROR( cudaStreamSynchronize(streamCopy) );
+        float elapsed;
+        CHECK_ERROR( cudaEventElapsedTime(&elapsed, copyEventStart, copyEventEnd) );
+        timerCopy+= elapsed; timerExec+=elapsed;
         doneMemcopy=true;
       }
     }

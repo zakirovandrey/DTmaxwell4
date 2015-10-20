@@ -114,23 +114,34 @@ static void CheckError( cudaError_t err, const char *file, int line) {
 class cuTimer {
   cudaEvent_t tstart,tend;
   cudaStream_t st;
-  float diftime;
   public:
-  cuTimer(const cudaStream_t& stream=0): diftime(0) {
+  float diftime;
+  inline void init(cudaStream_t stream=0) {
+    diftime=0;
     CHECK_ERROR( cudaEventCreate(&tstart) ); 
     CHECK_ERROR( cudaEventCreate(&tend  ) );
     CHECK_ERROR( cudaEventRecord(tstart,stream) ); st=stream;
   }
-  ~cuTimer(){
+  inline void destroy(){
     CHECK_ERROR( cudaEventDestroy(tstart) );
     CHECK_ERROR( cudaEventDestroy(tend) );
   }
+  cuTimer(cudaStream_t stream=0): diftime(0) { init(stream); }
+  ~cuTimer(){ destroy(); }
+  inline void record() { CHECK_ERROR( cudaEventRecord(tend,st) ); }
   float gettime(){
-    CHECK_ERROR( cudaEventRecord(tend,st) );
+    record();
     CHECK_ERROR( cudaEventSynchronize(tend) );
     CHECK_ERROR( cudaEventElapsedTime(&diftime, tstart,tend) ); 
     return diftime;
   }
+  float gettime_rec(){
+    //cudaError_t res = cudaEventElapsedTime(&diftime, tstart,tend); 
+    //if(res!=cudaSuccess && res!=cudaErrorNotReady) CHECK_ERROR(res);
+    CHECK_ERROR( cudaEventElapsedTime(&diftime, tstart,tend) );
+    return diftime;
+  }
+  cudaError_t status(){ return cudaStreamQuery(st); }
 };
 
 #include "im2D.h"
