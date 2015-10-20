@@ -58,9 +58,11 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   cudaStream_t stP   ; if(even==0) { cudaSetDevice(NDev-1); CHECK_ERROR( cudaStreamCreate(&stP   ) ); } else
                        if(even==1) { cudaSetDevice(0     ); CHECK_ERROR( cudaStreamCreate(&stP   ) ); }
   CHECK_ERROR( cudaSetDevice(0) );
+  #ifdef TIMERS_ON
   cuTimer ttPMLtop(stPMLtop), ttI(stI), ttDm[NDev];
   cuTimer ttPMLbot(stPMLbot), ttX(stX), ttDo[NDev], ttP(stP);
   for(int i=0;i<NDev;i++) { ttDm[i].init(stDm[i]); ttDo[i].init(stDo[i]); }
+  #endif
 
   int iym=0, iyp=0; 
   int Nblk=0;   iyp++;
@@ -158,10 +160,11 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   if(even==1                       ) IFPMLS(torreX1   ,1   ,Nth,0,stX      ,(ix,iyp,Nt,t0))*/
   
   CHECK_ERROR( cudaSetDevice(0) );
-
+  #ifdef TIMERS_ON
   ttPMLtop.record(); ttI.record(); for(int i=0;i<NDev;i++) ttDm[i].record();
   ttPMLbot.record(); ttX.record(); for(int i=0;i<NDev;i++) ttDo[i].record();
   ttP.record();
+  #endif
 
   float copytime=0;
   if(!doneMemcopy) {
@@ -182,7 +185,8 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamSynchronize(stDo[i]) );
   int firsti=parsHost.iStep%NDev; double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[firsti]) ); disbal[0]+=omp_get_wtime()-tt;
   for(int j=1;j<NDev;j++) { int i=(j+parsHost.iStep)%NDev; double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[i]) ); disbal[j]+=omp_get_wtime()-tt; }
-
+  
+  #ifdef TIMERS_ON
   timerPMLtop+= ttPMLtop.gettime_rec(); timerI+= ttI.gettime_rec(); for(int i=0;i<NDev;i++) timerDm[i]+= ttDm[i].gettime_rec();
   timerPMLbot+= ttPMLbot.gettime_rec(); timerX+= ttX.gettime_rec(); for(int i=0;i<NDev;i++) timerDo[i]+= ttDo[i].gettime_rec();
   timerP     += ttP.gettime_rec();
@@ -190,6 +194,7 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   float calctime = max(ttPMLtop.diftime,max(ttPMLbot.diftime,max(ttI.diftime,max(ttX.diftime,ttP.diftime))));
   for(int i=0;i<NDev;i++) calctime=max(calctime,max(ttDm[i].diftime,ttDo[i].diftime));
   timerExec+= max(copytime, calctime);
+  #endif
 
   CHECK_ERROR( cudaStreamDestroy(stPMLbot) );
   CHECK_ERROR( cudaStreamDestroy(stPMLtop) );
