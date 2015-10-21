@@ -70,7 +70,7 @@ struct Window {
       for(int ix=0; ix<Ns   ; ix++) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLa      [ix], &dataPMLa[(Np-Ns+ix)*Npmly], sizeof(DiamondRagPML)*1*Npmly        , cudaMemcpyHostToDevice, streamCopy) );
     CHECK_ERROR(cudaStreamSynchronize(streamCopy));
     RAMcopytime+=t0.gettime();*/
-    cuTimer t1; 
+    cuTimer t1; t1.init();
     //------------set_texture(parsHost.index_arr, Np-Ns);
     CHECK_ERROR(cudaDeviceSynchronize());
     Textime+=t1.gettime();
