@@ -371,7 +371,7 @@ extern struct GeoParamsHost: public GeoParams {
   unsigned int MaxFunc;
   static const int Nstreams=10+Na/MaxBlk;
   bool isTFSF;
-  std::string* dir;
+  std::string* dir, *swap_dir;
   void set();
   void reset_im() {
     arr4im.reset(Nz,Ny,Nx);
@@ -460,6 +460,11 @@ inline void print_info(){
   #endif
   #else
   printf("TEST_RATE -\n");
+  #endif
+  #ifdef SWAP_DATA
+  printf("SWAP_DATA + (at %s)\n",parsHost.swap_dir->c_str());
+  #else
+  printf("SWAP_DATA -\n");
   #endif
   #ifdef USE_WINDOW
   printf("USE_WINDOW +\n");

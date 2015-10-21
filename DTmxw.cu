@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #include <unistd.h>
 #ifdef MPI_ON
 #include <mpi.h>
@@ -293,7 +296,8 @@ void GeoParamsHost::set(){
   drop.dir=dir;
   struct stat st = {0};
 
-  if (stat(dir->c_str(), &st) == -1)  mkdir(dir->c_str(), 0700);
+  if (stat(dir->c_str()     , &st) == -1)  mkdir(dir->c_str()     , 0700);
+  if (stat(swap_dir->c_str(), &st) == -1)  mkdir(swap_dir->c_str(), 0700);
   
   if(node==0) print_info();
   if(node==0) printf("Full %d Big steps\n", Tsteps/Ntime);
@@ -375,7 +379,19 @@ void GeoParamsHost::set(){
   #if 1//USE_WINDOW
   printf("Allocating RAM memory on node %d: %g Gb\n", node, (Nn*Na*sizeof(DiamondRag)+Nn*Na*sizeof(ModelRag)+Nn*Na*sizeof(DiamondRagDisp)+Nn*Npmly*sizeof(DiamondRagPML)+Npmlx*Na*sizeof(DiamondRagPML))/(1024.*1024.*1024.));
   #if USE_UVM==2
-  CHECK_ERROR( cudaMallocHost(&data     , Nn*Na     *sizeof(DiamondRag    )) ); memset(data     , 0, Nn*Na     *sizeof(DiamondRag    ));
+  #ifdef SWAP_DATA
+  char swapdata[256]; sprintf(swapdata, "%s/swapdata.%d.%d", swap_dir->c_str(), node,subnode);
+  int swp_data; swp_data = open(swapdata,O_RDWR|O_TRUNC|O_CREAT, 0666);
+  if(swp_data==-1) { char s[128]; sprintf(s,"Error opening file %s at %d.%d",swapdata,node,subnode); perror(s); exit(-1); }
+  lseek(swp_data, Nn*Na*sizeof(DiamondRag), SEEK_SET);
+  write(swp_data, "", 1); lseek(swp_data, 0, SEEK_SET);
+  data = (DiamondRag*)mmap(0, Nn*Na*sizeof(DiamondRag), PROT_READ|PROT_WRITE, MAP_SHARED, swp_data,0);
+  if(data == MAP_FAILED) { char s[128]; sprintf(s,"Error mmap data at %d.%d",node,subnode); perror(s); exit(-1); }
+  close(swp_data);
+  #else
+  CHECK_ERROR( cudaMallocHost(&data     , Nn*Na     *sizeof(DiamondRag    )) );
+  #endif//SWAP_DATA
+  memset(data     , 0, Nn*Na     *sizeof(DiamondRag    ));
   CHECK_ERROR( cudaMallocHost(&dataInd  , Nn*Na     *sizeof(ModelRag      )) ); memset(dataInd  , 0, Nn*Na     *sizeof(ModelRag      ));
   CHECK_ERROR( cudaMallocHost(&dataDisp , Nn*Na     *sizeof(DiamondRagDisp)) ); memset(dataDisp , 0, Nn*Na     *sizeof(DiamondRagDisp));
   CHECK_ERROR( cudaMallocHost(&dataPMLa , Nn*Npmly  *sizeof(DiamondRagPML )) ); memset(dataPMLa , 0, Nn*Npmly  *sizeof(DiamondRagPML ));
@@ -613,7 +629,7 @@ int _main(int argc, char** argv) {
   if (ismpith != MPI_THREAD_MULTIPLE) { printf("Error: MPI implementation does not support multithreading\n"); MPI_Abort(MPI_COMM_WORLD, 1); }*/
   #endif
   argv ++; argc --;
-  im3DHost.reset();
+  im3DHost.reset(); parsHost.swap_dir=new std::string("./");
   while(argc>0 && strncmp(*argv,"--",2)==0) {
     if(strncmp(*argv,"--help",6)==0) return print_help();
     else if(strcmp(*argv,"--test")==0) { test_only = true; argv ++; argc --; continue; }
@@ -627,6 +643,7 @@ int _main(int argc, char** argv) {
     else if(strcmp(*argv,"--mesh_col")==0) read_float3(im3DHost.mesh_col, argv[1]);
     else if(strcmp(*argv,"--box_col")==0) read_float3(im3DHost.box_col, argv[1]);
     else if(strcmp(*argv,"--drop_dir")==0) strcpy(im3DHost.drop_dir,argv[1]);
+    else if(strcmp(*argv,"--swap_dir")==0) parsHost.swap_dir=new std::string(argv[1]);
     else if(strcmp(*argv,"--sensor")==0) { float v[3]; read_float3(v, argv[1]); add_sensor(v[0], v[1], v[2]); }
     else { printf("Illegal parameters' syntax notation\n"); return print_help(); }
     //else if(strcmp(*argv,"--")==0) read_float3(im3DHost., argv[1]);
