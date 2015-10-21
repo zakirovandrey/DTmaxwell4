@@ -115,18 +115,20 @@ class cuTimer {
   cudaEvent_t tstart,tend;
   cudaStream_t st;
   public:
+  int created;
   float diftime;
   inline void init(cudaStream_t stream=0) {
+    created=1;
     diftime=0;
     CHECK_ERROR( cudaEventCreate(&tstart) ); 
     CHECK_ERROR( cudaEventCreate(&tend  ) );
     CHECK_ERROR( cudaEventRecord(tstart,stream) ); st=stream;
   }
   inline void destroy(){
-    CHECK_ERROR( cudaEventDestroy(tstart) );
-    CHECK_ERROR( cudaEventDestroy(tend) );
+    if(created) CHECK_ERROR( cudaEventDestroy(tstart) );
+    if(created) CHECK_ERROR( cudaEventDestroy(tend) );
   }
-  cuTimer(cudaStream_t stream=0): diftime(0) { init(stream); }
+  cuTimer(cudaStream_t stream=0): diftime(0),created(0) {}
   ~cuTimer(){ destroy(); }
   inline void record() { CHECK_ERROR( cudaEventRecord(tend,st) ); }
   float gettime(){
@@ -138,7 +140,8 @@ class cuTimer {
   float gettime_rec(){
     //cudaError_t res = cudaEventElapsedTime(&diftime, tstart,tend); 
     //if(res!=cudaSuccess && res!=cudaErrorNotReady) CHECK_ERROR(res);
-    CHECK_ERROR( cudaEventElapsedTime(&diftime, tstart,tend) );
+    if(created) CHECK_ERROR( cudaEventElapsedTime(&diftime, tstart,tend) );
+    else diftime=0;
     return diftime;
   }
   cudaError_t status(){ return cudaStreamQuery(st); }

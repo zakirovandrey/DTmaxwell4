@@ -417,7 +417,7 @@ void GeoParamsHost::set(){
 
   drop.init();
   texs.init();
-  cuTimer t0;
+  cuTimer t0; t0.init();
   int xL=0; for(int inode=0; inode<node; inode++) xL+= mapNodeSize[inode]; xL-= Ns*node;
   int xR = xL+mapNodeSize[node];
   omp_set_num_threads(4);
