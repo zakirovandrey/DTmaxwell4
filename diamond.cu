@@ -52,17 +52,21 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   const int Nth=Nv; 
   double tt1 = omp_get_wtime();
   CHECK_ERROR( cudaSetDevice(0) );
+  #ifdef TIMERS_ON
+  cuTimer ttDm[NDev], ttDo[NDev];
+  cudaStream_t stPMLbot; CHECK_ERROR( cudaStreamCreate(&stPMLbot) ); cudaStream_t stI; CHECK_ERROR( cudaStreamCreate(&stI   ) ); cuTimer ttPMLtop(stPMLbot), ttI(stI);
+  cudaStream_t stDm[NDev],stDo[NDev]; for(int i=0;i<NDev;i++) { if(i!=0) CHECK_ERROR( cudaSetDevice(i) ); CHECK_ERROR( cudaStreamCreate(&stDm[i]) ); CHECK_ERROR( cudaStreamCreate(&stDo[i]) ); ttDm[i].init(stDm[i]); ttDo[i].init(stDo[i]); }
+  cudaStream_t stPMLtop; CHECK_ERROR( cudaStreamCreate(&stPMLtop) ); cudaStream_t stX; CHECK_ERROR( cudaStreamCreate(&stX   ) ); cuTimer ttPMLbot(stPMLtop), ttX(stX);
+  cudaStream_t stP; cuTimer ttP; if(even==0) { cudaSetDevice(NDev-1); CHECK_ERROR( cudaStreamCreate(&stP   ) ); ttP.init(stP); } else
+                                 if(even==1) { cudaSetDevice(0     ); CHECK_ERROR( cudaStreamCreate(&stP   ) ); ttP.init(stP); }
+  #else//TIMER_S_ON not def
   cudaStream_t stPMLbot; CHECK_ERROR( cudaStreamCreate(&stPMLbot) ); cudaStream_t stI; CHECK_ERROR( cudaStreamCreate(&stI   ) );
   cudaStream_t stDm[NDev],stDo[NDev]; for(int i=0;i<NDev;i++) { if(i!=0) CHECK_ERROR( cudaSetDevice(i) ); CHECK_ERROR( cudaStreamCreate(&stDm[i]) ); CHECK_ERROR( cudaStreamCreate(&stDo[i]) ); }
   cudaStream_t stPMLtop; CHECK_ERROR( cudaStreamCreate(&stPMLtop) ); cudaStream_t stX; CHECK_ERROR( cudaStreamCreate(&stX   ) );
   cudaStream_t stP   ; if(even==0) { cudaSetDevice(NDev-1); CHECK_ERROR( cudaStreamCreate(&stP   ) ); } else
                        if(even==1) { cudaSetDevice(0     ); CHECK_ERROR( cudaStreamCreate(&stP   ) ); }
+  #endif//TIMERS_ON
   CHECK_ERROR( cudaSetDevice(0) );
-  #ifdef TIMERS_ON
-  cuTimer ttPMLtop(stPMLtop), ttI(stI), ttDm[NDev];
-  cuTimer ttPMLbot(stPMLbot), ttX(stX), ttDo[NDev], ttP(stP);
-  for(int i=0;i<NDev;i++) { ttDm[i].init(stDm[i]); ttDo[i].init(stDo[i]); }
-  #endif
 
   int iym=0, iyp=0; 
   int Nblk=0;   iyp++;
@@ -161,9 +165,10 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   
   CHECK_ERROR( cudaSetDevice(0) );
   #ifdef TIMERS_ON
-  ttPMLtop.record(); ttI.record(); for(int i=0;i<NDev;i++) ttDm[i].record();
-  ttPMLbot.record(); ttX.record(); for(int i=0;i<NDev;i++) ttDo[i].record();
-  ttP.record();
+  ttPMLbot.record(); ttI.record(); for(int i=0;i<NDev;i++) { CHECK_ERROR(cudaSetDevice(i)); ttDm[i].record(); ttDo[i].record(); }
+  ttPMLtop.record(); ttX.record();
+  if(even==0) { ttP.record(); cudaSetDevice(0     ); }
+  if(even==1) { cudaSetDevice(0     ); ttP.record(); }
   #endif
 
   float copytime=0;
