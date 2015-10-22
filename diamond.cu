@@ -115,11 +115,6 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     if(is_oneL[idev] && even==1 && !isTFSF ) IFPMLS(torreD1    ,1          ,Nth,0,stDo[idev],ttDo[idev],(ix,D1oy[idev],Nt,t0))
     if(is_oneU[idev] && even==0 &&  isTFSF ) IFPMLS(torreTFSF0 ,1          ,Nth,0,stDo[idev],ttDo[idev],(ix,D0oy[idev],Nt,t0))
     if(is_oneU[idev] && even==0 && !isTFSF ) IFPMLS(torreD0    ,1          ,Nth,0,stDo[idev],ttDo[idev],(ix,D0oy[idev],Nt,t0))
-    if(is_oneL[idev] && even==1            ) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::copyM(idev, ixrag, stDo[idev]);
-    if(is_oneU[idev] && even==0            ) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::copyP(idev, ixrag, stDo[idev]);
-    #ifdef TIMERS_ON
-    if(is_oneL[idev] && even==1 || is_oneU[idev] && even==0) ttDo[idev].record();
-    #endif
     if(is_I[idev]    && even==0 && Npmly==0) IFPMLS(torreId0   ,1          ,Nth,0,stI       ,ttI       ,(ix,Iy        ,Nt,t0))
     if(is_I[idev]    && even==0 && Npmly!=0) IFPMLS(torreIs0   ,1          ,Nth,0,stI       ,ttI       ,(ix,Iy        ,Nt,t0))
     if(is_I[idev]    && even==1 && Npmly==0) IFPMLS(torreId1   ,1          ,Nth,0,stI       ,ttI       ,(ix,Iy        ,Nt,t0))
@@ -138,6 +133,11 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     if(is_many[idev] && even==1 && isTFSF  ) IFPMLS(torreTFSF1 ,DmBlk[idev],Nth,0,stDm[idev],ttDm[idev],(ix,Dmy[idev] ,Nt,t0))
     if(is_many[idev] && even==0 && !isTFSF ) IFPMLS(torreD0    ,DmBlk[idev],Nth,0,stDm[idev],ttDm[idev],(ix,Dmy[idev] ,Nt,t0))
     if(is_many[idev] && even==1 && !isTFSF ) IFPMLS(torreD1    ,DmBlk[idev],Nth,0,stDm[idev],ttDm[idev],(ix,Dmy[idev] ,Nt,t0))
+    if(is_oneL[idev] && even==1            ) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::copyM(idev, ixrag, stDo[idev]);
+    if(is_oneU[idev] && even==0            ) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::copyP(idev, ixrag, stDo[idev]);
+    #ifdef TIMERS_ON
+    if(is_oneL[idev] && even==1 || is_oneU[idev] && even==0) ttDo[idev].record();
+    #endif
   }
 
   /*
