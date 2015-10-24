@@ -102,8 +102,8 @@ const ftype dtdx=dt/dx, dtdy=dt/dy, dtdz=dt/dz;
 //STATIC_ASSERT((dx==dy) && (SquareGrid==1));
 //STATIC_ASSERT((dx==dz) && (SquareGrid==1));
 
-#define DEBUG_PRINT(debug) printf debug;
-#define DEBUG_MPI(debug)   printf debug;
+#define DEBUG_PRINT(debug) ;//printf debug;
+#define DEBUG_MPI(debug)   ;//printf debug;
 #define CHECK_ERROR(err) CheckError( err, __FILE__,__LINE__)
 static void CheckError( cudaError_t err, const char *file, int line) {
   if(err!=cudaSuccess){
