@@ -14,7 +14,6 @@ typedef float ftype;
 //#define ANISO_TR 2
 
 #define NDev 1
-#define NasyncNodes 1
 //#define GPUDIRECT_RDMA
 
 //#define DROP_DATA
@@ -40,8 +39,11 @@ const int GridNx=3*Np;
 #ifndef NA
 const int GridNy=gridNy;
 #else 
-const int GridNy=3*NA*NasyncNodes;
+const int GridNy=3*NA;
 #endif//NA
+#ifndef NB
+#define NB NA
+#endif
 #ifndef NV
 const int GridNz=gridNz;
 #else

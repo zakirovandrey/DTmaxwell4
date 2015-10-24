@@ -52,6 +52,7 @@ template<typename T1,typename T2> __host__ __device__ ftype2 make_ftype2(const T
 #define DYSH
 #endif
 
+const int NasyncNodes=NB/NA;
 const int Ns=NS;
 const int Na=NA;
 const int Nv=NV;

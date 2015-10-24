@@ -289,6 +289,7 @@ void GeoParamsHost::set(){
   if(mapNodeSize[Nprocs-1]<=Npmlx/2+Ns+Ns) { printf("Error: mapNodeSize[Nodes-1]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
   #endif
   if(Np%Ns!=0) { printf("Error: Np must be dividable by Ns\n"); exit(-1); }
+  if(NB%NA!=0) { printf("Error: NB must be dividable by NA\n"); exit(-1); }
   omp_set_num_threads(2);
 
   //dir= new string("/Run/zakirov/tmp/"); //ix=Nx+Nbase/2; Yshtype=0;
