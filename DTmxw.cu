@@ -270,7 +270,7 @@ void GeoParamsHost::set(){
   MPI_Comm_size (MPI_COMM_WORLD, &Nprocs); 
   if(node==0) printf("Total MPI tasks: %d\n", Nprocs);
   #endif
-  if(Nprocs%NasyncNodes!=0) { printf("Error: mpi procs must be dividable by NasyncNodes\n"); exit(-1); }
+  if(Nprocs%NasyncNodes!=0) { printf("Error: mpi procs (%d) must be dividable by NasyncNodes(%d)\n",Nprocs,NasyncNodes); exit(-1); }
   Nprocs/= NasyncNodes;
   mapNodeSize = new int[Nprocs];
   int accSizes=0;
