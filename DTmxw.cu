@@ -258,7 +258,7 @@ void setPMLcoeffs(ftype* k1x, ftype* k2x, ftype* k1y, ftype* k2y, ftype* k1z, ft
     k1z[i] = 2.0*k2z[i]-1;
   }
 }
-void setPeer2Peer(int node,int subnode){
+void setPeer2Peer(int node,int subnode, int* isp2p){
   for(int i=0; i<NDev; i++) for(int j=i+1; j<NDev; j++) {
       int canp2p=0; CHECK_ERROR(cudaDeviceCanAccessPeer(&canp2p,i,j));
       if(canp2p) { 
@@ -266,6 +266,7 @@ void setPeer2Peer(int node,int subnode){
         CHECK_ERROR(cudaSetDevice(j)); CHECK_ERROR(cudaDeviceEnablePeerAccess(i,0));
               printf("node.subnode %d.%d: %d<-->%d can Peer2Peer\n"   , node, subnode, i,j);
       } else  printf("node.subnode %d.%d: %d<-->%d cannot Peer2Peer\n", node, subnode, i,j);
+      if(j==i+1) isp2p[i]=canp2p;
   }
   CHECK_ERROR(cudaSetDevice(0)); 
 }
@@ -311,8 +312,10 @@ void GeoParamsHost::set(){
 
   if (stat(dir->c_str()     , &st) == -1)  mkdir(dir->c_str()     , 0700);
   if (stat(swap_dir->c_str(), &st) == -1)  mkdir(swap_dir->c_str(), 0700);
-
-  setPeer2Peer(node,subnode);
+  
+  for(int i=0;i<NDev-1;i++) isp2p[i]=0;
+  setPeer2Peer(node,subnode,isp2p);
+  for(int i=0;i<NDev-1;i++) isp2p[i]=1;
   
   if(node==0) print_info();
   if(node==0) printf("Full %d Big steps\n", Tsteps/Ntime);
@@ -429,6 +432,11 @@ void GeoParamsHost::set(){
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_send_buf, size_rdma ) );
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_recv_buf, size_rdma ) );
   #endif
+  for(int i=0; i<NDev-1; i++) {
+    size_t size_p2p = sizeof(DiamondRag)*(NDT*NDT/2+1);
+    p2p_buf[i]=0;
+    if(isp2p[i]) CHECK_ERROR( cudaMallocHost( (void**)&p2p_buf[i], size_p2p ) );
+  }
 
   drop.init();
   texs.init();

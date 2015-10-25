@@ -212,11 +212,22 @@ struct DiamondRag{
   inline static void copyP(const int idev, int ixrag, cudaStream_t& stream);
   inline static void SendMPIm(const int node, int ixrag);
   inline static void SendMPIp(const int node, int ixrag);
-  template<const int Did> inline static void copyDiamond(DiamondRag* dstRag, DiamondRag* srcRag, cudaStream_t& stream) {
-    if(Did==0) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Si[0        ].trifld, &srcRag->Si[0        ].trifld, sizeof(TwoDomS)*(NDT*NDT/2+1), cudaMemcpyDeviceToDevice, stream) );
-    if(Did==1) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Si[NDT*NDT/2].trifld, &srcRag->Si[NDT*NDT/2].trifld, sizeof(TwoDomS)*(NDT*NDT/2+1), cudaMemcpyDeviceToDevice, stream) );
-    if(Did==2) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Vi[0        ].trifld, &srcRag->Vi[0        ].trifld, sizeof(TwoDomV)*(NDT*NDT/2+1), cudaMemcpyDeviceToDevice, stream) );
-    if(Did==3) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Vi[NDT*NDT/2].trifld, &srcRag->Vi[NDT*NDT/2].trifld, sizeof(TwoDomV)*(NDT*NDT/2+1), cudaMemcpyDeviceToDevice, stream) );
+  template<const int Did> inline static void copyDiamond(DiamondRag* dstRag, DiamondRag* srcRag, DiamondRag* p2p_buf, cudaStream_t& stream) {
+    if(p2p_buf==0) {
+      if(Did==0) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Si[0        ].trifld, &srcRag->Si[0        ].trifld, sizeof(TwoDomS)*(NDT*NDT/2+1), cudaMemcpyDeviceToDevice, stream) );
+      if(Did==1) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Si[NDT*NDT/2].trifld, &srcRag->Si[NDT*NDT/2].trifld, sizeof(TwoDomS)*(NDT*NDT/2+1), cudaMemcpyDeviceToDevice, stream) );
+      if(Did==2) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Vi[0        ].trifld, &srcRag->Vi[0        ].trifld, sizeof(TwoDomV)*(NDT*NDT/2+1), cudaMemcpyDeviceToDevice, stream) );
+      if(Did==3) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Vi[NDT*NDT/2].trifld, &srcRag->Vi[NDT*NDT/2].trifld, sizeof(TwoDomV)*(NDT*NDT/2+1), cudaMemcpyDeviceToDevice, stream) );
+    } else {
+      if(Did==0) CHECK_ERROR( cudaMemcpyAsync(p2p_buf                      , &srcRag->Si[0        ].trifld, sizeof(TwoDomS)*(NDT*NDT/2+1), cudaMemcpyDeviceToHost  , stream) );
+      if(Did==1) CHECK_ERROR( cudaMemcpyAsync(p2p_buf                      , &srcRag->Si[NDT*NDT/2].trifld, sizeof(TwoDomS)*(NDT*NDT/2+1), cudaMemcpyDeviceToHost  , stream) );
+      if(Did==2) CHECK_ERROR( cudaMemcpyAsync(p2p_buf                      , &srcRag->Vi[0        ].trifld, sizeof(TwoDomV)*(NDT*NDT/2+1), cudaMemcpyDeviceToHost  , stream) );
+      if(Did==3) CHECK_ERROR( cudaMemcpyAsync(p2p_buf                      , &srcRag->Vi[NDT*NDT/2].trifld, sizeof(TwoDomV)*(NDT*NDT/2+1), cudaMemcpyDeviceToHost  , stream) );
+      if(Did==0) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Si[0        ].trifld, p2p_buf                      , sizeof(TwoDomS)*(NDT*NDT/2+1), cudaMemcpyHostToDevice  , stream) );
+      if(Did==1) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Si[NDT*NDT/2].trifld, p2p_buf                      , sizeof(TwoDomS)*(NDT*NDT/2+1), cudaMemcpyHostToDevice  , stream) );
+      if(Did==2) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Vi[0        ].trifld, p2p_buf                      , sizeof(TwoDomV)*(NDT*NDT/2+1), cudaMemcpyHostToDevice  , stream) );
+      if(Did==3) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Vi[NDT*NDT/2].trifld, p2p_buf                      , sizeof(TwoDomV)*(NDT*NDT/2+1), cudaMemcpyHostToDevice  , stream) );
+    }
 /*    if(Did==0) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Si[0        ].fld[0], &srcRag->Si[0        ].fld[0], sizeof(TwoDomS)*(NDT*NDT/2  )+sizeof(ftype)*4*Nz, cudaMemcpyDeviceToDevice, stream) );
     if(Did==1) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Si[NDT*NDT/2].fld[4], &srcRag->Si[NDT*NDT/2].fld[4], sizeof(TwoDomS)*(NDT*NDT/2+1)-sizeof(ftype)*4*Nz, cudaMemcpyDeviceToDevice, stream) );
     if(Did==2) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Vi[0        ].fld[0], &srcRag->Vi[0        ].fld[0], sizeof(TwoDomV)*(NDT*NDT/2  )+sizeof(ftype)*1*Nz, cudaMemcpyDeviceToDevice, stream) );
@@ -347,7 +358,8 @@ struct GeoParams{
   ModelTexs texs;
   SeismoDrops drop;
   
-  int node,subnode;
+  int node,subnode,isp2p[NDev-1];
+  DiamondRag* p2p_buf[NDev-1];
 
   std::vector<Sensor>* sensors;
 // Think about members!!!  WTF??
@@ -398,13 +410,13 @@ extern struct GeoParamsHost: public GeoParams {
 extern __constant__ GeoParams pars;
 
 inline void DiamondRag::copyM(const int idev, int ixrag, cudaStream_t& stream){ //diamonds 0 and 3
-  copyDiamond<0>( &parsHost.rags[idev-1][(ixrag%Ns+1)*NStripe[idev-1]-1], &parsHost.rags[idev  ][ ixrag%Ns   *NStripe[idev  ]  ], stream );
-  copyDiamond<3>( &parsHost.rags[idev-1][(ixrag%Ns+1)*NStripe[idev-1]-1], &parsHost.rags[idev  ][ ixrag%Ns   *NStripe[idev  ]  ], stream );
+  copyDiamond<0>( &parsHost.rags[idev-1][(ixrag%Ns+1)*NStripe[idev-1]-1], &parsHost.rags[idev  ][ ixrag%Ns   *NStripe[idev  ]  ], parsHost.p2p_buf[idev-1], stream );
+  copyDiamond<3>( &parsHost.rags[idev-1][(ixrag%Ns+1)*NStripe[idev-1]-1], &parsHost.rags[idev  ][ ixrag%Ns   *NStripe[idev  ]  ], parsHost.p2p_buf[idev-1], stream );
 }
 inline void DiamondRag::copyP(const int idev, int ixrag, cudaStream_t& stream){ //diamonds 1 and 2
-  copyDiamond<1>( &parsHost.rags[idev+1][ ixrag%Ns   *NStripe[idev+1]  ], &parsHost.rags[idev  ][(ixrag%Ns+1)*NStripe[idev  ]-1], stream );
+  copyDiamond<1>( &parsHost.rags[idev+1][ ixrag%Ns   *NStripe[idev+1]  ], &parsHost.rags[idev  ][(ixrag%Ns+1)*NStripe[idev  ]-1], parsHost.p2p_buf[idev  ], stream );
   ixrag++;
-  copyDiamond<2>( &parsHost.rags[idev+1][ ixrag%Ns   *NStripe[idev+1]  ], &parsHost.rags[idev  ][(ixrag%Ns+1)*NStripe[idev  ]-1], stream );
+  copyDiamond<2>( &parsHost.rags[idev+1][ ixrag%Ns   *NStripe[idev+1]  ], &parsHost.rags[idev  ][(ixrag%Ns+1)*NStripe[idev  ]-1], parsHost.p2p_buf[idev  ], stream );
 }
 inline void DiamondRag::SendMPIm(const int mpirank, int ixrag){ //diamonds 0 and 3
   MPIsendDiamond<0>( &parsHost.rags[NDev-1][(ixrag%Ns+1)*NStripe[NDev-1]-1], &parsHost.rags[0][ ixrag%Ns   *NStripe[0]  ], mpirank-1, mpirank, parsHost.rdma_send_buf, parsHost.rdma_recv_buf);
