@@ -406,23 +406,24 @@ int calcStep(){
       }
       #endif
       #ifdef MPI_TEST
-      if(parsHost.iStep-window.node>0)
+      if(parsHost.iStep-window.node>0) {
       #endif
       
-      ampi_exch.do_run=1;
-      if(NasyncNodes>1) { if(sem_init(&ampi_exch.sem_calc, 0,0)==-1) printf("Error semaphore init errno=%d\n", errno);
-                          if(sem_init(&ampi_exch.sem_mpi , 0,0)==-1) printf("Error semaphore init errno=%d\n", errno); }
-      #pragma omp parallel num_threads(2)
-      {
-      if(omp_get_thread_num()==1) {
-        window.calcDtorres(nL,nR, parsHost.wleft<nL && window.node!=0, parsHost.wleft>=nR-Ns && window.node!=window.Nprocs-1);
-        ampi_exch.do_run=0; if(NasyncNodes>1) if(sem_post(&ampi_exch.sem_mpi)<0) printf("sem_post_mpi end error %d\n",errno); 
+        ampi_exch.do_run=1;
+        if(NasyncNodes>1) { if(sem_init(&ampi_exch.sem_calc, 0,0)==-1) printf("Error semaphore init errno=%d\n", errno);
+                            if(sem_init(&ampi_exch.sem_mpi , 0,0)==-1) printf("Error semaphore init errno=%d\n", errno); }
+        #pragma omp parallel num_threads(2)
+        {
+        if(omp_get_thread_num()==1) {
+          window.calcDtorres(nL,nR, parsHost.wleft<nL && window.node!=0, parsHost.wleft>=nR-Ns && window.node!=window.Nprocs-1);
+          ampi_exch.do_run=0; if(NasyncNodes>1) if(sem_post(&ampi_exch.sem_mpi)<0) printf("sem_post_mpi end error %d\n",errno); 
+        }
+          #pragma omp master
+          if(NasyncNodes>1) { while(ampi_exch.do_run) ampi_exch.run(); if(sem_post(&ampi_exch.sem_calc)<0) printf("sem_post_calc end error %d\n",errno); }
+        }
+        if(NasyncNodes>1) { if(sem_destroy(&ampi_exch.sem_mpi )<0) printf("sem_destroy error %d\n",errno);
+                            if(sem_destroy(&ampi_exch.sem_calc)<0) printf("sem_destroy error %d\n",errno); }
       }
-        #pragma omp master
-        if(NasyncNodes>1) { while(ampi_exch.do_run) ampi_exch.run(); if(sem_post(&ampi_exch.sem_calc)<0) printf("sem_post_calc end error %d\n",errno); }
-      }
-      if(NasyncNodes>1) { if(sem_destroy(&ampi_exch.sem_mpi )<0) printf("sem_destroy error %d\n",errno);
-                          if(sem_destroy(&ampi_exch.sem_calc)<0) printf("sem_destroy error %d\n",errno); }
 
       if(parsHost.wleft==nL-Ns-1  && window.node!=0              ) {
         DEBUG_MPI(("Send&Recv M(%d) (node %d) wleft=%d\n", parsHost.wleft+Ns+1, window.node, parsHost.wleft));
