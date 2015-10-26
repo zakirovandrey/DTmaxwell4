@@ -639,8 +639,8 @@ bool help_only=false, test_only=false;
 int Tsteps=Ntime*100;
 int _main(int argc, char** argv) {
   #ifdef MPI_ON
-  //MPI_Init(&argc,&argv);
-  int ismpith;
+  MPI_Init(&argc,&argv);
+  /*int ismpith;
   MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ismpith);
   switch(ismpith) {
     case MPI_THREAD_SINGLE:     printf("MPI multithreading implementation MPI_TREAD_SINGLE\n"); break;
@@ -648,8 +648,8 @@ int _main(int argc, char** argv) {
     case MPI_THREAD_SERIALIZED: printf("MPI multithreading implementation MPI_THREAD_SERIALIZED\n"); break;
     case MPI_THREAD_MULTIPLE:   printf("MPI multithreading implementation MPI_THREAD_MULTIPLE\n"); break;
     default: printf("Unknown MPI multithreading implementation\n"); break;
-  }
-  if (ismpith != MPI_THREAD_MULTIPLE) { printf("Error: MPI implementation does not support multithreading\n"); MPI_Abort(MPI_COMM_WORLD, 1); }
+  }*/
+  //if (ismpith != MPI_THREAD_MULTIPLE) { printf("Error: MPI implementation does not support multithreading\n"); MPI_Abort(MPI_COMM_WORLD, 1); }
   #endif
   argv ++; argc --;
   im3DHost.reset(); parsHost.swap_dir=new std::string("./");

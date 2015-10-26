@@ -258,8 +258,8 @@ MPI_Status status;
 int flag;
 mpi_message Window::mes[8];
 //#define BLOCK_SEND
-//#define MPI_NUDGE
-#define USE_MPI_THREADING
+#define MPI_NUDGE
+//#define USE_MPI_THREADING
 
 #ifdef BLOCK_SEND
 #define SendMPI(p,sz,tp,rnk,tag,world,req) MPI_Send(p,sz,tp,rnk,tag,world);
@@ -423,7 +423,9 @@ int calcStep(){
         }
         if(NasyncNodes>1) { if(sem_destroy(&ampi_exch.sem_mpi )<0) printf("sem_destroy error %d\n",errno);
                             if(sem_destroy(&ampi_exch.sem_calc)<0) printf("sem_destroy error %d\n",errno); }
+      #ifdef MPI_TEST
       }
+      #endif
 
       if(parsHost.wleft==nL-Ns-1  && window.node!=0              ) {
         DEBUG_MPI(("Send&Recv M(%d) (node %d) wleft=%d\n", parsHost.wleft+Ns+1, window.node, parsHost.wleft));

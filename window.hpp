@@ -92,10 +92,10 @@ struct Window {
   void calcDtorres(const int nL=0, const int nR=Np, const bool isOnlyMemcopyDtH=false, const bool isOnlyMemcopyHtD=false) { 
     double t0=omp_get_wtime();
     DEBUG_MPI(("CalcDtorres OnlyMemcopyDtH=%d  OnlyMemcopyHtD=%d (node %d) wleft=%d\n", isOnlyMemcopyDtH, isOnlyMemcopyHtD, node, parsHost.wleft));
-    pthread_t tid = pthread_self();
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset); for(int j=0; j<24; j++) CPU_SET(j, &cpuset);
-    int s0 = pthread_setaffinity_np(tid, sizeof(cpu_set_t), &cpuset);
+    //pthread_t tid = pthread_self();
+    //cpu_set_t cpuset;
+    //CPU_ZERO(&cpuset); for(int j=0; j<24; j++) CPU_SET(j, &cpuset);
+    //int s0 = pthread_setaffinity_np(tid, sizeof(cpu_set_t), &cpuset);
     //int s1 = pthread_getaffinity_np(tid, sizeof(cpu_set_t), &cpuset);
     //printf("    CPU "); for (int j=0; j<CPU_SETSIZE; j++) if(CPU_ISSET(j, &cpuset)) printf(" %d", j); printf("\n");
     
