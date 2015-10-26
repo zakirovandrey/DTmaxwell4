@@ -259,7 +259,7 @@ int flag;
 mpi_message Window::mes[8];
 //#define BLOCK_SEND
 //#define MPI_NUDGE
-//#define USE_MPI_THREADING
+#define USE_MPI_THREADING
 
 #ifdef BLOCK_SEND
 #define SendMPI(p,sz,tp,rnk,tag,world,req) MPI_Send(p,sz,tp,rnk,tag,world);
