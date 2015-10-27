@@ -443,14 +443,14 @@ void GeoParamsHost::set(){
   cuTimer t0; t0.init();
   int xL=0; for(int inode=0; inode<node; inode++) xL+= mapNodeSize[inode]; xL-= Ns*node;
   int xR = xL+mapNodeSize[node];
-  omp_set_num_threads(4);
+/*  omp_set_num_threads(4);
   for(int x=0;x<Np;x++) {
     printf("Initializing h-parameter %.2f%%      \r",100*double(x+1)/Np); fflush(stdout);
     if(x>=xL && x<xR) { 
       #pragma omp parallel for
       for(int y=0;y<Na;y++) dataInd[x*Na+y].set(x,y);
     }
-  }
+  }*/
 //  printf("t0=%g\n",t0.gettime());
   
   sensors = new std::vector<Sensor>();
