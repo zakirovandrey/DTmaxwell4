@@ -110,13 +110,13 @@ endif
 
 build: DTmxw _DTmxw.so
 
-kerTFSF.o: kerTFSF.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh defs.h signal.hpp
+kerTFSF.o: kerTFSF.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh copyrags.cuh defs.h signal.hpp
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
-kerTFSF_pmls.o: kerTFSF_pmls.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh defs.h signal.hpp
+kerTFSF_pmls.o: kerTFSF_pmls.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh copyrags.cuh defs.h signal.hpp
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
-kerITFSF.o: kerITFSF.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh defs.h signal.hpp
+kerITFSF.o: kerITFSF.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh copyrags.cuh defs.h signal.hpp
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
-kerITFSF_pmls.o: kerITFSF_pmls.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh defs.h signal.hpp
+kerITFSF_pmls.o: kerITFSF_pmls.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh copyrags.cuh defs.h signal.hpp
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
 
 #AsyncTYPES := D_pmls S_pmls I_pmls X_pmls DD_pmls D S I X DD
@@ -125,7 +125,7 @@ obj_files = $(foreach a,$(AsyncTYPES), ker$a.o)
 
 ker%.o: ker%.inc.cu
 ker%.o: %.inc.cu
-$(obj_files): cuda_math.h params.h py_consts.h defs.h texmodel.cuh 
+$(obj_files): cuda_math.h params.h py_consts.h defs.h copyrags.cuh texmodel.cuh 
 	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $(subst .o,.inc.cu,$@)
 
 dt.o: DTmxw.cu diamond.cu drop.cu im3D.hpp im2D.h cuda_math.h params.h py_consts.h texmodel.cuh init.h signal.hpp window.hpp

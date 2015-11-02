@@ -38,8 +38,8 @@ struct AsyncMPIexch{
   void run() {
     if(sem_wait(&sem_mpi)<0) printf("run sem_wait error %d\n",errno);
     if(do_run==0) return;
-    if(even==0) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::SendMPIp(mpirank, ixrag);
-    if(even==1) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::SendMPIm(mpirank, ixrag);
+    if(even==0) DiamondRag::bufSendMPIp(mpirank, t0,Nt);
+    if(even==1) DiamondRag::bufSendMPIm(mpirank, t0,Nt);
     if(sem_post(&sem_calc)<0) printf("run sem_post error %d\n",errno);;
   }
 } ampi_exch;
@@ -133,8 +133,8 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     if(is_many[idev] && even==1 && isTFSF  ) IFPMLS(torreTFSF1 ,DmBlk[idev],Nth,0,stDm[idev],ttDm[idev],(ix,Dmy[idev] ,Nt,t0))
     if(is_many[idev] && even==0 && !isTFSF ) IFPMLS(torreD0    ,DmBlk[idev],Nth,0,stDm[idev],ttDm[idev],(ix,Dmy[idev] ,Nt,t0))
     if(is_many[idev] && even==1 && !isTFSF ) IFPMLS(torreD1    ,DmBlk[idev],Nth,0,stDm[idev],ttDm[idev],(ix,Dmy[idev] ,Nt,t0))
-    if(is_oneL[idev] && even==1            ) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::copyM(idev, ixrag, stDo[idev]);
-    if(is_oneU[idev] && even==0            ) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::copyP(idev, ixrag, stDo[idev]);
+    if(is_oneL[idev] && even==1            ) DiamondRag::copyMbuf(idev, t0,Nt, stDo[idev]);
+    if(is_oneU[idev] && even==0            ) DiamondRag::copyPbuf(idev, t0,Nt, stDo[idev]);
     #ifdef TIMERS_ON
     if(is_oneL[idev] && even==1 || is_oneU[idev] && even==0) ttDo[idev].record();
     #endif
@@ -255,7 +255,7 @@ template<int even> inline void DtorreBloch(int ix, int tiy, int Nt, int t0, bool
 #ifdef MPI_ON
 MPI_Request reqSp, reqSm, reqRp, reqRm, reqSp_pml, reqSm_pml, reqRp_pml, reqRm_pml;
 MPI_Status status;
-int flag;
+int flagSp,flagRp,flagSm,flagRm,flagSp_pml,flagRp_pml,flagSm_pml,flagRm_pml;
 mpi_message Window::mes[8];
 //#define BLOCK_SEND
 #define MPI_NUDGE
@@ -306,7 +306,6 @@ int calcStep(){
     torreD1<<<(Na-2)/block_spacing,Nv>>>(ix, 1, Ntime, 0); cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
     torreNum++;
   }
-  cuTimer tdrop; tdrop.init(); parsHost.drop.drop(0,Np,parsHost.data,parsHost.iStep); dropTime+= tdrop.gettime();
   #else
   Window window; window.prepare();
   int node_shift=0; for(int inode=0; inode<window.node; inode++) node_shift+= mapNodeSize[inode]; node_shift-= Ns*window.node;
@@ -324,8 +323,8 @@ int calcStep(){
       #ifdef MPI_TEST
       doSR=0;
       #endif
-      RecvMPI(&window.data    [wleftP*Na   ], doSR*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+0, MPI_COMM_WORLD, &reqRp    , 2);
-      RecvMPI(&window.dataPMLa[wleftP*Npmly], doSR*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+1, MPI_COMM_WORLD, &reqRp_pml, 6);
+      RecvMPI(&window.data    [wleftP*Na   ], doSR*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+0, MPI_COMM_WORLD, &reqRp    , 2);flagRp    =0;
+      RecvMPI(&window.dataPMLa[wleftP*Npmly], doSR*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+1, MPI_COMM_WORLD, &reqRp_pml, 6);flagRp_pml=0;
       #endif
     }
     if(window.node!=0              ) {
@@ -344,28 +343,28 @@ int calcStep(){
     if( !(parsHost.wleft>=nR && window.node!=window.Nprocs-1 || parsHost.wleft<nL-Ns && window.node!=0) ) {
       if(parsHost.wleft==nR-1     && window.node!=window.Nprocs-1) { 
         DEBUG_MPI(("bl Recv P(%d) (node %d) wleft=%d tag=%d\n", nR-Ns, window.node, parsHost.wleft, parsHost.iStep+0));
-        RecvMPI(&window.data    [(nR-Ns)*Na   ], Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+0)*2+0, MPI_COMM_WORLD, &reqRp    , 2);
-        RecvMPI(&window.dataPMLa[(nR-Ns)*Npmly], Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+0)*2+1, MPI_COMM_WORLD, &reqRp_pml, 6);
+        RecvMPI(&window.data    [(nR-Ns)*Na   ], Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+0)*2+0, MPI_COMM_WORLD, &reqRp    , 2);flagRp    =0;
+        RecvMPI(&window.dataPMLa[(nR-Ns)*Npmly], Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+0)*2+1, MPI_COMM_WORLD, &reqRp_pml, 6);flagRp_pml=0;
         DEBUG_MPI(("Ok Recv P(%d) (node %d) wleft=%d tag=%d\n", nR-Ns, window.node, parsHost.wleft, parsHost.iStep+0));
       }
       //if(parsHost.wleft==nR-Ns-Ns && window.node!=window.Nprocs-1) {
       if(parsHost.wleft==nL+Ns && window.node!=window.Nprocs-1) {
         DEBUG_MPI(("bl Send P(%d) (node %d) wleft=%d tag=%d\n", nR-Ns, window.node, parsHost.wleft, parsHost.iStep+1));
-        SendMPI(&window.data    [(nR-Ns)*Na   ], Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqSp     ,0);
-        SendMPI(&window.dataPMLa[(nR-Ns)*Npmly], Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqSp_pml, 4);
+        SendMPI(&window.data    [(nR-Ns)*Na   ], Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqSp     ,0);flagSp    =0;
+        SendMPI(&window.dataPMLa[(nR-Ns)*Npmly], Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqSp_pml, 4);flagSp_pml=0;
         DEBUG_MPI(("Ok Send P(%d) (node %d) wleft=%d tag=%d\n", nR-Ns, window.node, parsHost.wleft, parsHost.iStep+1));
       }
       if(parsHost.wleft==nL+Ns  && window.node!=0               && parsHost.iStep!=0) { 
         DEBUG_MPI(("bl Recv M(%d) (node %d) wleft=%d tag=%d\n", nL, window.node, parsHost.wleft, parsHost.iStep+0));
-        RecvMPI(&window.data    [ nL    *Na   ], Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep+0)*2+0, MPI_COMM_WORLD, &reqRm    , 3);
-        RecvMPI(&window.dataPMLa[ nL    *Npmly], Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep+0)*2+1, MPI_COMM_WORLD, &reqRm_pml, 7);
+        RecvMPI(&window.data    [ nL    *Na   ], Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep+0)*2+0, MPI_COMM_WORLD, &reqRm    , 3);flagRm    =0;
+        RecvMPI(&window.dataPMLa[ nL    *Npmly], Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep+0)*2+1, MPI_COMM_WORLD, &reqRm_pml, 7);flagRm_pml=0;
         DEBUG_MPI(("Ok Recv M(%d) (node %d) wleft=%d tag=%d\n", nL, window.node, parsHost.wleft, parsHost.iStep-1));
       }
       window.calcDtorres(nL,nR, parsHost.wleft<nL && window.node!=0, parsHost.wleft>=nR-Ns && window.node!=window.Nprocs-1);
       if(parsHost.wleft==nL-Ns  && window.node!=0              ) {
         DEBUG_MPI(("bl Send M(%d) (node %d) wleft=%d tag=%d\n", nL, window.node, parsHost.wleft, parsHost.iStep+0));
-        SendMPI(&window.data    [ nL    *Na   ], Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep+0)*2+0, MPI_COMM_WORLD, &reqSm    , 1);
-        SendMPI(&window.dataPMLa[ nL    *Npmly], Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep+0)*2+1, MPI_COMM_WORLD, &reqSm_pml, 5);
+        SendMPI(&window.data    [ nL    *Na   ], Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep+0)*2+0, MPI_COMM_WORLD, &reqSm    , 1);flagSm    =0;
+        SendMPI(&window.dataPMLa[ nL    *Npmly], Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep+0)*2+1, MPI_COMM_WORLD, &reqSm_pml, 5);flagSm_pml=0;
         DEBUG_MPI(("Ok Send M(%d) (node %d) wleft=%d tag=%d\n", nL, window.node, parsHost.wleft, parsHost.iStep+0));
       }
     }
@@ -387,10 +386,10 @@ int calcStep(){
       }
       if(parsHost.wleft==nR-Ns-Ns-1 && window.node!=window.Nprocs-1) {
         DEBUG_MPI(("Send&Recv P(%d) (node %d) wleft=%d\n", parsHost.wleft+Ns, window.node, parsHost.wleft));
-        SendMPI(&window.data    [(nR-Ns)*Na   ], doSend[1]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqSp    ,0);
-        SendMPI(&window.dataPMLa[(nR-Ns)*Npmly], doSend[1]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqSp_pml,4);
-        RecvMPI(&window.data    [(nR-Ns)*Na   ], doRecv[1]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqRp    ,2);
-        RecvMPI(&window.dataPMLa[(nR-Ns)*Npmly], doRecv[1]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqRp_pml,6);
+        SendMPI(&window.data    [(nR-Ns)*Na   ], doSend[1]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqSp    ,0);flagSp    =0;
+        SendMPI(&window.dataPMLa[(nR-Ns)*Npmly], doSend[1]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqSp_pml,4);flagSp_pml=0;
+        RecvMPI(&window.data    [(nR-Ns)*Na   ], doRecv[1]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqRp    ,2);flagRp    =0;
+        RecvMPI(&window.dataPMLa[(nR-Ns)*Npmly], doRecv[1]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqRp_pml,6);flagRp_pml=0;
       }
       if(doWait && parsHost.wleft==nL+Ns+(Ns-Ntime-1)   && parsHost.iStep!=0) { 
         DEBUG_MPI(("waiting M (node %d) wleft=%d\n", window.node, parsHost.wleft)); 
@@ -399,16 +398,15 @@ int calcStep(){
       }
       #ifdef MPI_NUDGE
       if(doWait && (parsHost.wleft+Ns)%1==0) {
-        if(parsHost.iStep!=0 && window.node!=window.Nprocs-1) { DEBUG_MPI(("testing sendP (node %d) wleft=%d\n", window.node, parsHost.wleft)); MPI_Test(&reqSp, &flag, &status);MPI_Test(&reqSp_pml, &flag, &status); }
-        if(                     window.node!=window.Nprocs-1) { DEBUG_MPI(("testing recvP (node %d) wleft=%d\n", window.node, parsHost.wleft)); MPI_Test(&reqRp, &flag, &status);MPI_Test(&reqRp_pml, &flag, &status); }
-        if(parsHost.iStep!=0 && window.node!=0              ) { DEBUG_MPI(("testing sendM (node %d) wleft=%d\n", window.node, parsHost.wleft)); MPI_Test(&reqSm, &flag, &status);MPI_Test(&reqSm_pml, &flag, &status); }
-        if(parsHost.iStep!=0 && window.node!=0              ) { DEBUG_MPI(("testing recvM (node %d) wleft=%d\n", window.node, parsHost.wleft)); MPI_Test(&reqRm, &flag, &status);MPI_Test(&reqRm_pml, &flag, &status); }
+        if(parsHost.iStep!=0 && window.node!=window.Nprocs-1) { DEBUG_MPI(("testing sendP (node %d) wleft=%d\n", window.node, parsHost.wleft)); if(!flagSp) MPI_Test(&reqSp, &flagSp, &status);if(!flagSp_pml) MPI_Test(&reqSp_pml, &flagSp_pml, &status); }
+        if(                     window.node!=window.Nprocs-1) { DEBUG_MPI(("testing recvP (node %d) wleft=%d\n", window.node, parsHost.wleft)); if(!flagRp) MPI_Test(&reqRp, &flagRp, &status);if(!flagRp_pml) MPI_Test(&reqRp_pml, &flagRp_pml, &status); }
+        if(parsHost.iStep!=0 && window.node!=0              ) { DEBUG_MPI(("testing sendM (node %d) wleft=%d\n", window.node, parsHost.wleft)); if(!flagSm) MPI_Test(&reqSm, &flagSm, &status);if(!flagSm_pml) MPI_Test(&reqSm_pml, &flagSm_pml, &status); }
+        if(parsHost.iStep!=0 && window.node!=0              ) { DEBUG_MPI(("testing recvM (node %d) wleft=%d\n", window.node, parsHost.wleft)); if(!flagRm) MPI_Test(&reqRm, &flagRm, &status);if(!flagRm_pml) MPI_Test(&reqRm_pml, &flagRm_pml, &status); }
       }
       #endif
       #ifdef MPI_TEST
       if(parsHost.iStep-window.node>0) {
       #endif
-      
         ampi_exch.do_run=1;
         if(NasyncNodes>1) { if(sem_init(&ampi_exch.sem_calc, 0,0)==-1) printf("Error semaphore init errno=%d\n", errno);
                             if(sem_init(&ampi_exch.sem_mpi , 0,0)==-1) printf("Error semaphore init errno=%d\n", errno); }
@@ -429,10 +427,10 @@ int calcStep(){
 
       if(parsHost.wleft==nL-Ns-1  && window.node!=0              ) {
         DEBUG_MPI(("Send&Recv M(%d) (node %d) wleft=%d\n", parsHost.wleft+Ns+1, window.node, parsHost.wleft));
-        SendMPI(&window.data    [ nL    *Na   ], doSend[0]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep  )*2+0, MPI_COMM_WORLD, &reqSm    ,1);
-        SendMPI(&window.dataPMLa[ nL    *Npmly], doSend[0]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep  )*2+1, MPI_COMM_WORLD, &reqSm_pml,5);
-        RecvMPI(&window.data    [ nL    *Na   ], doRecv[0]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqRm,    3);
-        RecvMPI(&window.dataPMLa[ nL    *Npmly], doRecv[0]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqRm_pml,7);
+        SendMPI(&window.data    [ nL    *Na   ], doSend[0]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep  )*2+0, MPI_COMM_WORLD, &reqSm    ,1);flagSm    =0;
+        SendMPI(&window.dataPMLa[ nL    *Npmly], doSend[0]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep  )*2+1, MPI_COMM_WORLD, &reqSm_pml,5);flagSm_pml=0;
+        RecvMPI(&window.data    [ nL    *Na   ], doRecv[0]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqRm,    3);flagRm    =0;
+        RecvMPI(&window.dataPMLa[ nL    *Npmly], doRecv[0]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqRm_pml,7);flagRm_pml=0;
       }
     }
     #endif//BLOCK_SEND
@@ -456,6 +454,9 @@ int calcStep(){
     izon++;
     Dtorres(max(ix,zones[izon]), min(Ntime,zones[izon+1]-ix), max(zones[izon]-ix,0), true );*/
   #endif//TEST_RATE
+  #if not defined MPI_ON && defined DROP_DATA
+  cuTimer tdrop; tdrop.init(); parsHost.drop.drop(0,Np,parsHost.data,parsHost.iStep); dropTime+= tdrop.gettime();
+  #endif
 
   double calcTime=t0.gettime();
   unsigned long int yee_cells = 0;

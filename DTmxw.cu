@@ -318,6 +318,7 @@ void GeoParamsHost::set(){
   for(int i=0;i<NDev-1;i++) isp2p[i]=1;
   
   if(node==0) print_info();
+  Tsteps+= node*Ntime;
   if(node==0) printf("Full %d Big steps\n", Tsteps/Ntime);
   if(node==0) printf("Grid size: %dx%d Rags /%dx%dx%d Yee_cells/, TorreH=%d\n", Np, Na, Np*NDT,Na*NDT,Nv, Ntime);
   if(node==0) printf("Window size: %d, copy-shift step %d \n", Ns, Window::NTorres );
@@ -339,28 +340,32 @@ void GeoParamsHost::set(){
   size_t size_xzModel= Ns   *sizeof(ModelRag     );
   size_t sz          = Na*size_xz;
   size_t szModel     = Na*size_xzModel;
+  size_t szBuf       = Ntime*sizeof(halfRag      );
   size_t szPMLa      = Ns*Npmly*sizeof(DiamondRagPML);
   size_t size_xzPMLs = Npmlx/2*sizeof(DiamondRagPML);
   size_t szPMLs      = Na*size_xzPMLs;
   size_t size_xzDisp =(dispReg::sR-dispReg::sL)*sizeof(DiamondRagDisp);
   size_t szDisp =Na*size_xzDisp;
   if(node==0) {
-  printf("GPU Cell's Array size     : %.2fM = %.2fM(Main)+%.2fM(Model)+%.2fM(Disp)+%.2fM(PMLs)+%.2fM(PMLa)\n", 
-           (sz+szModel+szDisp+szPMLs+szPMLa)/(1024.*1024.),
+  printf("GPU Cell's Array size     : %7.2fM = %7.2fM(Main)+%7.2fM(Buffers)+%7.2fM(Model)+%7.2fM(Disp)+%7.2fM(PMLs)+%7.2fM(PMLa)\n", 
+           (sz+2*NDev*szBuf+szModel+szDisp+szPMLs+szPMLa)/(1024.*1024.),
            sz     /(1024.*1024.), 
+      NDev*szBuf*2/(1024.*1024.), 
            szModel/(1024.*1024.), 
            szDisp /(1024.*1024.), 
            szPMLs /(1024.*1024.), 
            szPMLa /(1024.*1024.)  );
-  for(int istrp=0; istrp<NDev-1; istrp++) printf( "                   Stripe%d: %.2fM = %.2fM+%.2fM+%.2fM+%.2fM\n", istrp, 
-           (size_xz*NStripe[istrp]+size_xzModel*NStripe[istrp]+size_xzDisp*NStripe[istrp]+size_xzPMLs*NStripe[istrp])/(1024.*1024.),
+  for(int istrp=0; istrp<NDev-1; istrp++) printf( "                   Stripe%d: %7.2fM = %7.2fM      +%7.2fM         +%7.2fM       +%7.2fM      +%7.2fM\n", istrp, 
+           (size_xz*NStripe[istrp]+2*szBuf+size_xzModel*NStripe[istrp]+size_xzDisp*NStripe[istrp]+size_xzPMLs*NStripe[istrp])/(1024.*1024.),
            size_xz    *NStripe[istrp ]/(1024.*1024.), 
-           size_xzModel*NStripe[istrp ]/(1024.*1024.),
+           szBuf*2                    /(1024.*1024.), 
+           size_xzModel*NStripe[istrp]/(1024.*1024.),
            size_xzDisp*NStripe[istrp ]/(1024.*1024.),
            size_xzPMLs*NStripe[istrp ]/(1024.*1024.)  );
-                                         printf( "                   Stripe%d: %.2fM = %.2fM+%.2fM+%.2fM+%.2fM+%.2fM\n", NDev-1, 
-           (size_xz*NStripe[NDev-1]+size_xzModel*NStripe[NDev-1]+size_xzDisp*NStripe[NDev-1]+size_xzPMLs*NStripe[NDev-1]+szPMLa)/(1024.*1024.),
+                                          printf( "                   Stripe%d: %7.2fM = %7.2fM      +%7.2fM         +%7.2fM       +%7.2fM      +%7.2fM      +%7.2fM\n", NDev-1, 
+           (size_xz*NStripe[NDev-1]+2*szBuf+size_xzModel*NStripe[NDev-1]+size_xzDisp*NStripe[NDev-1]+size_xzPMLs*NStripe[NDev-1]+szPMLa)/(1024.*1024.),
            size_xz    *NStripe[NDev-1]/(1024.*1024.), 
+           szBuf*2                    /(1024.*1024.), 
            size_xzModel*NStripe[NDev-1]/(1024.*1024.),
            size_xzDisp*NStripe[NDev-1]/(1024.*1024.),
            size_xzPMLs*NStripe[NDev-1]/(1024.*1024.), 
@@ -371,6 +376,8 @@ void GeoParamsHost::set(){
     CHECK_ERROR( cudaSetDevice(idev) );
     CHECK_ERROR( cudaMalloc( (void**)&(ragsInd  [idev]), size_xzModel*NStripe[idev]) );
     CHECK_ERROR( cudaMalloc( (void**)&(rags     [idev]), size_xz     *NStripe[idev]) );
+    CHECK_ERROR( cudaMalloc( (void**)&(p2pBufM  [idev]), szBuf     ) );
+    CHECK_ERROR( cudaMalloc( (void**)&(p2pBufP  [idev]), szBuf     ) );
     CHECK_ERROR( cudaMalloc( (void**)&(ragsDisp [idev]), size_xzDisp *NStripe[idev]) );
 //    CHECK_ERROR( cudaMalloc( (void**)&(ragsPMLs[idev]), size_xzPMLs*NStripe[idev]    ) );
     #ifndef USE_WINDOW
@@ -380,6 +387,8 @@ void GeoParamsHost::set(){
     if(idev==NDev-1)
     CHECK_ERROR( cudaMalloc( (void**)& ragsPMLa       , szPMLa ) );
     CHECK_ERROR( cudaMemset(rags    [idev], 0, size_xz    *NStripe[idev])  );
+    CHECK_ERROR( cudaMemset(p2pBufM [idev], 0, szBuf)  );
+    CHECK_ERROR( cudaMemset(p2pBufP [idev], 0, szBuf)  );
     CHECK_ERROR( cudaMemset(ragsInd [idev], 0, size_xzModel*NStripe[idev]) );
     CHECK_ERROR( cudaMemset(ragsDisp[idev], 0, size_xzDisp*NStripe[idev])  );
     #ifndef USE_WINDOW
@@ -428,7 +437,8 @@ void GeoParamsHost::set(){
   #endif
   #endif
   #ifndef GPUDIRECT_RDMA
-  size_t size_rdma = sizeof(DiamondRag)*(NDT*NDT/2+1);
+  //size_t size_rdma = sizeof(DiamondRag)*(NDT*NDT/2+1);
+  size_t size_rdma = szBuf;
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_send_buf, size_rdma ) );
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_recv_buf, size_rdma ) );
   #endif
@@ -636,7 +646,7 @@ float read_float(char* str) {
 void add_sensor(int ix, int iy, int iz);
 
 bool help_only=false, test_only=false;
-int Tsteps=Ntime*100;
+int Tsteps=Ntime*10;
 int _main(int argc, char** argv) {
   #ifdef MPI_ON
   MPI_Init(&argc,&argv);
@@ -680,7 +690,7 @@ try {
   if(type_diag_flag>=1) printf("Настройка опций визуализации по умолчанию\n");
   //imHost.reset();
   cudaTimer tm; tm.start();
-  if(GridNy>50) Tsteps=Ntime*10;
+  //if(GridNy>50) Tsteps=Ntime*10;
   parsHost.set();
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
   copy2dev( parsHost, pars );

@@ -191,6 +191,14 @@ extern texture<char, cudaTextureType3D> index_tex;
   DiamondRag      * __restrict__ RAG0       = &pars.rags[curDev][iy  -ymC];\
   DiamondRag      * __restrict__ RAGcc      = RAG0+ ix           *dStepRagC;\
   DiamondRag      * __restrict__ RAGmc      = RAG0+((ix-1+Ns)%Ns)*dStepRagC;\
+  int xstart=ix;\
+  const bool isTopStripe = (curDev==NDev-1 && pars.subnode==NasyncNodes-1);\
+  const bool isBotStripe = (curDev==0      && pars.subnode==0            );\
+  if(iy==ymC+NStripe(curDev)-1 && !isTopStripe) if(EVENTYPE==0) load_buffer<EVENTYPE>(RAG0, pars.p2pBufP[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);\
+  if(iy==ymC                   && !isBotStripe) if(EVENTYPE==1) load_buffer<EVENTYPE>(RAG0, pars.p2pBufM[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);
+#define POSTEND(EVENTYPE)\
+  if(iy==ymC+NStripe(curDev)-1 && !isTopStripe) if(EVENTYPE==0) save_buffer<EVENTYPE>(RAG0, pars.p2pBufP[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);\
+  if(iy==ymC                   && !isBotStripe) if(EVENTYPE==1) save_buffer<EVENTYPE>(RAG0, pars.p2pBufM[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);
 
 #define PTR_DEC \
   const int ixm=(ix-1+Ns)%Ns, ixp=(ix+1)%Ns;\
