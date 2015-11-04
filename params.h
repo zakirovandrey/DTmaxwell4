@@ -207,8 +207,8 @@ struct PairDom21{
 };
 struct halfRag{
   union{
-    PairDom12 pd1[6];
-    PairDom21 pd0[6];
+    PairDom12 pd1[NDT*NDT];
+    PairDom21 pd0[NDT*NDT];
   };
 };
 struct TwoDomS {

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from ctypes import *
-#mpi = CDLL('libmpi.so.0', RTLD_GLOBAL)
+mpi = CDLL('/usr/mpi/gcc/openmpi-1.4.2-qlc/lib64/libmpi.so.0', RTLD_GLOBAL)
 #mpi = CDLL('/usr/lib64/mpich2/lib/libmpich.so.1.2', RTLD_GLOBAL)
 
 from math import *
@@ -32,5 +32,5 @@ SS.set(0,0,0)
 
 SS.tStop = 0#boxDiagLength/2/cL+8/(SS.w/2)+10*dt # 5000*dt; # ((BoxPs-BoxMs)+(BoxPa-BoxMa)+(BoxMv-BoxPv))/c+2*M_PI/Omega;
 
-DTmxw.cvar.Tsteps=100*(10 if GridNy>450 else 100)
+DTmxw.cvar.Tsteps=1000000#DTmxw.cvar.Ntime*(10 if GridNy>450 else 100)
 DTmxw._main(sys.argv)
