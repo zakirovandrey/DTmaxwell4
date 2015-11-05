@@ -14,7 +14,7 @@ typedef float ftype;
 //#define ANISO_TR 2
 
 #define NDev 1
-//#define GPUDIRECT_RDMA
+#define GPUDIRECT_RDMA
 
 //#define DROP_DATA
 //#define USE_AIVLIB_MODEL

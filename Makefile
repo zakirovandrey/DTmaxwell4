@@ -1,7 +1,7 @@
 #ARCH ?= #k100#geocluster #gpupc1 #D
 #USE_AIVLIB_MODEL ?= 1
-#MPI_ON ?= 1
-USE_DOUBLE ?= 1
+MPI_ON ?= 1
+#USE_DOUBLE ?= 1
 
 ifeq      ($(COMP),k100)
 ARCH := sm_20
@@ -21,7 +21,7 @@ endif
 
 ifdef MPI_ON
 ifeq ($(COMP),k100)
-GCC  ?= /usr/mpi/gcc/openmpi-1.4.2-qlc/bin/mpicc
+GCC  ?= /usr/mpi/gcc/mvapich2-1.5.1-qlc/bin/mpicc
 else
 GCC  ?= mpic++
 endif
@@ -54,7 +54,7 @@ CDEFS := $(foreach f, $(ALL_DEFS), $(if $($f),-D$f=$($f)))
 NVCCFLAGS   := -ccbin $(GCC) -O3 -Xptxas="-v" #-Xcudafe "--diag_suppress=declared_but_not_referenced,set_but_not_used"
 CCFLAGS     := -O3 -fopenmp -fPIC $(CDEFS) 
 NVCCLDFLAGS :=
-LDFLAGS     := -L/usr/mpi/gcc/openmpi-1.4.2-qlc/lib64/ -L./ -L/usr/lib64/mpich2/lib/ -L/home/zakirov/cuda-7.5/lib64
+LDFLAGS     := -L./ -L/usr/mpi/gcc/mvapich2-1.5.1/lib/ -L/common/cuda-6.5/lib64/ -L/home/zakirov/cuda-7.5/lib64
 
 # Extra user flags
 EXTRA_NVCCFLAGS   ?=
@@ -63,13 +63,13 @@ EXTRA_LDFLAGS     ?=
 EXTRA_CCFLAGS     ?= #-std=c++11
 
 ifeq ($(COMP),k100)
-INCLUDES  := -I/usr/mpi/gcc/openmpi-1.4.2-qlc/include/ -I./png/
-LIBRARIES := -lmpi -lcudart -lglut -lGL -lcufft -lpng -lgomp -lpthread
+INCLUDES  := -I/usr/mpi/gcc/mvapich2-1.5.1/lib/include/ -I./png/
+LIBRARIES := -lmpich -lcudart -lglut -lGL -lcufft -lpng -lgomp -lpthread
 else ifeq ($(COMP),geocluster)
 INCLUDES  := -I/usr/mpi/gcc/mvapich-1.2.0/include/
 LIBRARIES := -lcudart -lGL -lcufft -lpng -lgomp -lpthread -lpyaiv2
 ifdef MPI_ON
-LIBRARIES := -mpich $(LIBRARIES)
+LIBRARIES := -lmpich $(LIBRARIES)
 else
 LIBRARIES := -lglut $(LIBRARIES)
 endif

@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from ctypes import *
-mpi = CDLL('/usr/mpi/gcc/openmpi-1.4.2-qlc/lib64/libmpi.so.0', RTLD_GLOBAL)
-#mpi = CDLL('/usr/lib64/mpich2/lib/libmpich.so.1.2', RTLD_GLOBAL)
+#mpi = CDLL('/usr/mpi/gcc/openmpi-1.4.2-qlc/lib64/libmpi.so.0', RTLD_GLOBAL)
+mpi = CDLL('/usr/mpi/gcc/mvapich2-1.5.1-qlc/lib/libmpich.so.1.2', RTLD_GLOBAL)
 
 from math import *
 import sys
