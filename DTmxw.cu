@@ -441,6 +441,12 @@ void GeoParamsHost::set(){
   size_t size_rdma = szBuf;
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_send_buf, size_rdma ) );
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_recv_buf, size_rdma ) );
+  for(int idev=0; idev<NDev; idev++) {
+    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufM_host[idev]), szBuf     ) );
+    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufP_host[idev]), szBuf     ) );
+    CHECK_ERROR( cudaMemset(p2pBufM_host[idev], 0, szBuf)  );
+    CHECK_ERROR( cudaMemset(p2pBufP_host[idev], 0, szBuf)  );
+  }
   #endif
   for(int i=0; i<NDev-1; i++) {
     size_t size_p2p = sizeof(DiamondRag)*(NDT*NDT/2+1);
