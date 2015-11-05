@@ -128,7 +128,7 @@ struct idle_func_calc: public any_idle_func_struct {
 };
 void idle_func_calc::step() {
   calcStep();
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(float)) );
   mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   im3DHost.initCuda(parsHost.arr4im);
   recalc_at_once=true;
@@ -196,7 +196,7 @@ static void key_func(unsigned char key, int x, int y) {
   }
   copy2dev( parsHost, pars );
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(float)) );
   mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   im3DHost.initCuda(parsHost.arr4im);
   recalc_at_once=true;
@@ -730,7 +730,7 @@ try {
   parsHost.reset_im();
   im3DHost.reset(parsHost.arr4im);
   copy2dev( parsHost, pars );
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(float)) );
   mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
   im2D.get_device(2,0);
