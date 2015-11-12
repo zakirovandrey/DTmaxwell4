@@ -128,7 +128,7 @@ struct idle_func_calc: public any_idle_func_struct {
 };
 void idle_func_calc::step() {
   calcStep();
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(float)) );
   mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   im3DHost.initCuda(parsHost.arr4im);
   recalc_at_once=true;
@@ -196,7 +196,7 @@ static void key_func(unsigned char key, int x, int y) {
   }
   copy2dev( parsHost, pars );
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(float)) );
   mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   im3DHost.initCuda(parsHost.arr4im);
   recalc_at_once=true;
@@ -441,13 +441,17 @@ void GeoParamsHost::set(){
   size_t size_rdma = szBuf;
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_send_buf, size_rdma ) );
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_recv_buf, size_rdma ) );
-  for(int idev=0; idev<NDev; idev++) {
-    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufM_host[idev]), szBuf     ) );
-    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufP_host[idev]), szBuf     ) );
-    CHECK_ERROR( cudaMemset(p2pBufM_host[idev], 0, szBuf)  );
-    CHECK_ERROR( cudaMemset(p2pBufP_host[idev], 0, szBuf)  );
-  }
   #endif
+  for(int idev=0; idev<NDev; idev++) {
+    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufM_host_snd[idev]), szBuf     ) );
+    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufP_host_snd[idev]), szBuf     ) );
+    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufM_host_rcv[idev]), szBuf     ) );
+    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufP_host_rcv[idev]), szBuf     ) );
+    CHECK_ERROR( cudaMemset(p2pBufM_host_snd[idev], 0, szBuf)  );
+    CHECK_ERROR( cudaMemset(p2pBufP_host_snd[idev], 0, szBuf)  );
+    CHECK_ERROR( cudaMemset(p2pBufM_host_rcv[idev], 0, szBuf)  );
+    CHECK_ERROR( cudaMemset(p2pBufP_host_rcv[idev], 0, szBuf)  );
+  }
   for(int i=0; i<NDev-1; i++) {
     size_t size_p2p = sizeof(DiamondRag)*(NDT*NDT/2+1);
     p2p_buf[i]=0;
@@ -730,7 +734,7 @@ try {
   parsHost.reset_im();
   im3DHost.reset(parsHost.arr4im);
   copy2dev( parsHost, pars );
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(float)) );
   mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
   im2D.get_device(2,0);

@@ -404,8 +404,10 @@ struct GeoParams{
   void* rdma_recv_buf;
   halfRag* p2pBufM[NDev];
   halfRag* p2pBufP[NDev];
-  halfRag* p2pBufM_host[NDev];
-  halfRag* p2pBufP_host[NDev];
+  halfRag* p2pBufM_host_snd[NDev];
+  halfRag* p2pBufP_host_snd[NDev];
+  halfRag* p2pBufM_host_rcv[NDev];
+  halfRag* p2pBufP_host_rcv[NDev];
   ModelTexs texs;
   SeismoDrops drop;
   
