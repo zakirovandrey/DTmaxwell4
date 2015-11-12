@@ -259,7 +259,7 @@ MPI_Status status;
 int flagSp,flagRp,flagSm,flagRm,flagSp_pml,flagRp_pml,flagSm_pml,flagRm_pml;
 mpi_message Window::mes[8];
 //#define BLOCK_SEND
-#define MPI_NUDGE
+//#define MPI_NUDGE
 //#define USE_MPI_THREADING
 
 #ifdef BLOCK_SEND

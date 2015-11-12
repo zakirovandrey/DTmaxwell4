@@ -128,7 +128,7 @@ struct idle_func_calc: public any_idle_func_struct {
 };
 void idle_func_calc::step() {
   calcStep();
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(float)) );
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
   mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   im3DHost.initCuda(parsHost.arr4im);
   recalc_at_once=true;
@@ -196,7 +196,7 @@ static void key_func(unsigned char key, int x, int y) {
   }
   copy2dev( parsHost, pars );
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(float)) );
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
   mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   im3DHost.initCuda(parsHost.arr4im);
   recalc_at_once=true;
@@ -220,7 +220,7 @@ double PMLgamma_func(int i, int N, ftype dstep){ //return 0;
   if(i>=N-3) return 0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(10000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(10)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
@@ -229,7 +229,7 @@ double PMLgamma_funcY(int i, int N, ftype dstep){ //return 0;
   if(i>=N-3) return 0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(10000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(10)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
@@ -238,7 +238,7 @@ double PMLgamma_funcZ(int i, int N, ftype dstep){ //return 0;
   if(i>=N-3) return 0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(10000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(10)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
@@ -730,7 +730,7 @@ try {
   parsHost.reset_im();
   im3DHost.reset(parsHost.arr4im);
   copy2dev( parsHost, pars );
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(float)) );
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
   mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
   im2D.get_device(2,0);
