@@ -22,30 +22,30 @@ struct PlaneTFSF{
     //phiz=pars.inc_ang;//1*1/180.0*M_PI;
     //if(fabs(_z-Nz)<0.1*dz) phiz=0*M_PI/6.; else phiz=M_PI/2.;
     
-    ftype kx=src.k*sin(src.theta)*cos(phiz), ky=src.k*sin(src.theta)*sin(phiz), kz=src.k*cos(src.theta);
+    ftype kx=src.k*sinf(src.theta)*cosf(phiz), ky=src.k*sinf(src.theta)*sinf(phiz), kz=src.k*cosf(src.theta);
     //ftype delay = fabs(2*Na*NDT*dy*sin(phiz));
     if(dz!=FLT_MAX) phase = src.w*t-kx*(x-src.BoxMs)-ky*(y-src.BoxMa)-kz*(z-src.BoxMv);
     else            phase = src.w*t-kx*(x-src.BoxMs)-ky*(y-src.BoxMa);
     ftype Yc=Na*NasyncNodes*NDT*dy*0.5;
     ftype Zc=Nz*dz*0.5;
     ftype waist = 0.30;
-    ftype gaussEnv = exp(-(y-Yc)*(y-Yc)/(waist*waist));//-(z-Zc)*(z-Zc)/(0.3*Zc*0.3*Zc));
+    ftype gaussEnv = expf(-(y-Yc)*(y-Yc)/(waist*waist));//-(z-Zc)*(z-Zc)/(0.3*Zc*0.3*Zc));
     //if (fabs(gaussEnv)<1.e-4 || z>(src.BoxMv+src.BoxPv)*0.5*10) gaussEnv=0;
-    Ephi   =  A*((phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1)*0.5*(1-cos(phase*src.kEnv))*sin(phase)*gaussEnv;
-    Htheta = -A*((phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1)*0.5*(1-cos(phase*src.kEnv))*sin(phase)*gaussEnv;
+    Ephi   =  A*((phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1)*0.5*(1-cosf(phase*src.kEnv))*sinf(phase)*gaussEnv;
+    Htheta = -A*((phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1)*0.5*(1-cosf(phase*src.kEnv))*sinf(phase)*gaussEnv;
     if(0 && phase*src.kEnv>M_PI){ 
-      Ephi   =  A*sin(phase)*gaussEnv;
-      Htheta = -A*sin(phase)*gaussEnv;
+      Ephi   =  A*sinf(phase)*gaussEnv;
+      Htheta = -A*sinf(phase)*gaussEnv;
     }
     Etheta=0; Hphi=0; Er=0; Hr=0;
     //if(phase>0) printf("kz=%g phase=%g %g %g %g %g\n", kz, phase, _x,_y,_z,_t);
   }
-  __device__ inline ftype getEx() { return -Ephi*sin(src.phi)+Etheta*cos(src.theta)*cos(src.phi)+Er*sin(src.theta)*cos(src.phi); }
-  __device__ inline ftype getEy() { return  Ephi*cos(src.phi)+Etheta*cos(src.theta)*sin(src.phi)+Er*sin(src.theta)*sin(src.phi); }
-  __device__ inline ftype getEz() { return -Etheta*sin(src.theta)+Er*cos(src.theta); }
-  __device__ inline ftype getHx() { return -Hphi*sin(src.phi)+Htheta*cos(src.theta)*cos(src.phi)+Hr*sin(src.theta)*cos(src.phi); }
-  __device__ inline ftype getHy() { return  Hphi*cos(src.phi)+Htheta*cos(src.theta)*sin(src.phi)+Hr*sin(src.theta)*sin(src.phi); }
-  __device__ inline ftype getHz() { return -Htheta*sin(src.theta)+Hr*cos(src.theta); }
+  __device__ inline ftype getEx() { return -Ephi*sinf(src.phi)+Etheta*cosf(src.theta)*cosf(src.phi)+Er*sinf(src.theta)*cosf(src.phi); }
+  __device__ inline ftype getEy() { return  Ephi*cosf(src.phi)+Etheta*cosf(src.theta)*sinf(src.phi)+Er*sinf(src.theta)*sinf(src.phi); }
+  __device__ inline ftype getEz() { return -Etheta*sinf(src.theta)+Er*cosf(src.theta); }
+  __device__ inline ftype getHx() { return -Hphi*sinf(src.phi)+Htheta*cosf(src.theta)*cosf(src.phi)+Hr*sinf(src.theta)*cosf(src.phi); }
+  __device__ inline ftype getHy() { return  Hphi*cosf(src.phi)+Htheta*cosf(src.theta)*sinf(src.phi)+Hr*sinf(src.theta)*sinf(src.phi); }
+  __device__ inline ftype getHz() { return -Htheta*sinf(src.theta)+Hr*cosf(src.theta); }
 };
 
 void TFSFsrc::set(const double _Vp, const double _Vs, const double _Rho) {
