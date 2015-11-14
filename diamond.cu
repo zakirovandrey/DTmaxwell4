@@ -141,8 +141,8 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     if(is_many[idev] && even==1 && !isTFSF ) IFPMLS(torreD1    ,DmBlk[idev],Nth,0,stDm[idev],ttDm[idev],(ix,Dmy[idev] ,Nt,t0))
     if(is_oneL[idev] && even==1            ) DiamondRag::copyMbuf(idev, t0,Nt, stDo[idev]);
     if(is_oneU[idev] && even==0            ) DiamondRag::copyPbuf(idev, t0,Nt, stDo[idev]);
-    if(is_P[idev]    && even==0            ) DiamondRag::prepTransM(mpirank, t0,Nt, stP);
-    if(is_P[idev]    && even==1            ) DiamondRag::prepTransP(mpirank, t0,Nt, stP);
+    if(is_P[idev]    && even==1            ) DiamondRag::prepTransM(mpirank, t0,Nt, stP);
+    if(is_P[idev]    && even==0            ) DiamondRag::prepTransP(mpirank, t0,Nt, stP);
     #ifdef TIMERS_ON
     if(is_oneL[idev] && even==1 || is_oneU[idev] && even==0) ttDo[idev].record();
     if(is_P[idev]) ttP.record();
@@ -183,8 +183,8 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   if(NasyncNodes>1) ampi_exch.exch_sync();
   for(int idev=0; idev<NDev; idev++) {
     CHECK_ERROR(cudaSetDevice(idev));
-    if(is_P[idev] && even==0 ) DiamondRag::postTransM(mpirank, t0,Nt, stP);
-    if(is_P[idev] && even==1 ) DiamondRag::postTransP(mpirank, t0,Nt, stP);
+    if(is_P[idev] && even==1 ) DiamondRag::postTransM(mpirank, t0,Nt, stP);
+    if(is_P[idev] && even==0 ) DiamondRag::postTransP(mpirank, t0,Nt, stP);
     if(is_P[idev]) CHECK_ERROR( cudaStreamSynchronize(stP) );
     if(is_P[idev]) ttP.record();
   } CHECK_ERROR(cudaSetDevice(0));
