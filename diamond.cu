@@ -29,17 +29,21 @@ __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
 #include "window.hpp"
 struct AsyncMPIexch{
   int even,ix,t0,Nt,mpirank; bool do_run;
+  double exch_time;
   sem_t sem_mpi, sem_calc;
   void exch(const int _even, const int _ix, const int _t0, const int _Nt, const int _mpirank) {
     even=_even; ix=_ix; t0=_t0; Nt=_Nt, mpirank=_mpirank;
+    exch_time=0;
     if(sem_post(&sem_mpi)<0) printf("exch sem_post error %d\n",errno);
   }
   void exch_sync(){ if(sem_wait(&sem_calc)<0) printf("exch_sync sem error %d\n",errno); }
   void run() {
     if(sem_wait(&sem_mpi)<0) printf("run sem_wait error %d\n",errno);
     if(do_run==0) return;
+    double start_time = omp_get_wtime();
     if(even==0) DiamondRag::bufSendMPIp(mpirank, t0,Nt);
     if(even==1) DiamondRag::bufSendMPIm(mpirank, t0,Nt);
+    exch_time = omp_get_wtime()-start_time;
     if(sem_post(&sem_calc)<0) printf("run sem_post error %d\n",errno);;
   }
 } ampi_exch;
@@ -178,6 +182,9 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
 //  if(even==1) { cudaSetDevice(0     ); ttP.record(); }
   #endif
 
+  CHECK_ERROR( cudaStreamSynchronize(stP   ) );
+  if(NasyncNodes>1) ampi_exch.exch(even, ix, t0, Nt, node*NasyncNodes+subnode);
+
   float copytime=0;
   if(!doneMemcopy) {
     CHECK_ERROR(cudaEventRecord(copyEventStart, streamCopy));
@@ -188,8 +195,6 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     CHECK_ERROR( cudaEventElapsedTime(&copytime, copyEventStart, copyEventEnd) ); timerCopy+= copytime;
   }
   
-  CHECK_ERROR( cudaStreamSynchronize(stP   ) );
-  if(NasyncNodes>1) ampi_exch.exch(even, ix, t0, Nt, node*NasyncNodes+subnode);
   CHECK_ERROR( cudaStreamSynchronize(stPMLbot) ); 
   CHECK_ERROR( cudaStreamSynchronize(stPMLtop) );
   CHECK_ERROR( cudaStreamSynchronize(stI   ) );
@@ -197,16 +202,6 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamSynchronize(stDo[i]) );
   int firsti=parsHost.iStep%NDev; double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[firsti]) ); disbal[0]+=omp_get_wtime()-tt;
   for(int j=1;j<NDev;j++) { int i=(j+parsHost.iStep)%NDev; double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[i]) ); disbal[j]+=omp_get_wtime()-tt; }
-  
-  #ifdef TIMERS_ON
-  timerPMLtop+= ttPMLtop.gettime_rec(); timerI+= ttI.gettime_rec(); for(int i=0;i<NDev;i++) timerDm[i]+= ttDm[i].gettime_rec();
-  timerPMLbot+= ttPMLbot.gettime_rec(); timerX+= ttX.gettime_rec(); for(int i=0;i<NDev;i++) timerDo[i]+= ttDo[i].gettime_rec();
-  timerP     += ttP.gettime_rec();
-  
-  float calctime = max(ttPMLtop.diftime,max(ttPMLbot.diftime,max(ttI.diftime,max(ttX.diftime,ttP.diftime))));
-  for(int i=0;i<NDev;i++) calctime=max(calctime,max(ttDm[i].diftime,ttDo[i].diftime));
-  timerExec+= max(copytime, calctime);
-  #endif
 
   CHECK_ERROR( cudaStreamDestroy(stPMLbot) );
   CHECK_ERROR( cudaStreamDestroy(stPMLtop) );
@@ -216,6 +211,17 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamDestroy(stDo[i]) );
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamDestroy(stDm[i]) );
   if(NasyncNodes>1) ampi_exch.exch_sync();
+
+  #ifdef TIMERS_ON
+  timerPMLtop+= ttPMLtop.gettime_rec(); timerI+= ttI.gettime_rec(); for(int i=0;i<NDev;i++) timerDm[i]+= ttDm[i].gettime_rec();
+  timerPMLbot+= ttPMLbot.gettime_rec(); timerX+= ttX.gettime_rec(); for(int i=0;i<NDev;i++) timerDo[i]+= ttDo[i].gettime_rec();
+  timerP     += ttP.gettime_rec();
+  timerP+= ampi_exch.exch_time*1e3;
+  
+  float calctime = max(ttPMLtop.diftime,max(ttPMLbot.diftime,max(ttI.diftime,max(ttX.diftime,ttP.diftime+ampi_exch.exch_time*1e3))));
+  for(int i=0;i<NDev;i++) calctime=max(calctime,max(ttDm[i].diftime,ttDo[i].diftime));
+  timerExec+= max(copytime, calctime);
+  #endif
 }
 inline void Window::Dtorres(int ix, int Nt, int t0, double disbal[NDev], bool isPMLs, bool isTFSF) {
   #ifdef BLOCH_BND_Y
