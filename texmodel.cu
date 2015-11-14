@@ -258,9 +258,9 @@ void ModelTexs::init(){
   CHECK_ERROR(cudaSetDevice(0));
 
 }
-void ModelTexs::copyTexs(const int x1dev, const int x2dev, const int x1host, const int x2host, cudaStream_t& streamCopy){
+void ModelTexs::copyTexs(const int x1dev, const int x2dev, const int x1host, const int x2host, cudaStream_t streamCopy[NDev]){
 }
-void ModelTexs::copyTexs(const int xdev, const int xhost, cudaStream_t& streamCopy){
+void ModelTexs::copyTexs(const int xdev, const int xhost, cudaStream_t streamCopy[NDev]){
   if(xhost==Np) for(int ind=0; ind<Ntexs; ind++) copyTexs(xhost+ceil(texStep[ind]/NDT), xhost+ceil(texStep[ind]/NDT), streamCopy);
   for(int idev=0;idev<NDev;idev++) {
     CHECK_ERROR(cudaSetDevice(idev));
@@ -282,25 +282,25 @@ void ModelTexs::copyTexs(const int xdev, const int xhost, cudaStream_t& streamCo
       copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerS[ind][0], texNz*sizeof(coffS_t), texNz, texNy);
       copyparms.dstArray = DevLayerS[idev][ind];
       copyparms.extent = make_cudaExtent(texNz,texNy,numX);
-      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy) );
+      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy[idev]) );
       copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerV[ind][0], texNz*sizeof(float  ), texNz, texNy);
       copyparms.dstArray = DevLayerV[idev][ind];
       copyparms.extent = make_cudaExtent(texNz,texNy,numX);
-      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy) );
+      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy[idev]) );
       #ifndef ANISO_TR
       copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerT[ind][0], texNz*sizeof(float  ), texNz, texNy);
       copyparms.dstArray = DevLayerT[idev][ind];
       copyparms.extent = make_cudaExtent(texNz,texNy,numX);
-      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy) );
+      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy[idev]) );
       #elif ANISO_TR==1 || ANISO_TR==2 || ANISO_TR==3
       copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerTi[ind][0],texNz*sizeof(float  ), texNz, texNy);
       copyparms.dstArray = DevLayerTi[idev][ind];
       copyparms.extent = make_cudaExtent(texNz,texNy,numX);
-      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy) );
+      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy[idev]) );
       copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerTa[ind][0],texNz*sizeof(float  ), texNz, texNy);
       copyparms.dstArray = DevLayerTa[idev][ind];
       copyparms.extent = make_cudaExtent(texNz,texNy,numX);
-      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy) );
+      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy[idev]) );
       #else
       #error UNKNOWN ANISO_TYPE
       #endif

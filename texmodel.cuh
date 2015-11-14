@@ -68,8 +68,8 @@ struct ModelTexs{
   coffS_t** HostLayerS; float **HostLayerV, **HostLayerT, **HostLayerTi, **HostLayerTa;
   cudaArray** DevLayerS[NDev], **DevLayerV[NDev], **DevLayerT[NDev], **DevLayerTi[NDev], **DevLayerTa[NDev];
   void init();
-  void copyTexs(const int x1dev, const int x2dev, const int x1host, const int x2host, cudaStream_t& streamCopy);
-  void copyTexs(const int xdev, const int xhost, cudaStream_t& streamCopy);
+  void copyTexs(const int x1dev, const int x2dev, const int x1host, const int x2host, cudaStream_t streamCopy[NDev]);
+  void copyTexs(const int xdev, const int xhost, cudaStream_t streamCopy[NDev]);
 };
 
 #include "signal.h"

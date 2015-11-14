@@ -436,12 +436,10 @@ void GeoParamsHost::set(){
   dataPMLs = new DiamondRagPML[Npmlx*Na]; memset(dataPMLs, 0, Npmlx*Na*sizeof(DiamondRagPML));
   #endif
   #endif
-  #ifndef GPUDIRECT_RDMA
   //size_t size_rdma = sizeof(DiamondRag)*(NDT*NDT/2+1);
   size_t size_rdma = szBuf;
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_send_buf, size_rdma ) );
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_recv_buf, size_rdma ) );
-  #endif
   for(int idev=0; idev<NDev; idev++) {
     CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufM_host_snd[idev]), szBuf     ) );
     CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufP_host_snd[idev]), szBuf     ) );

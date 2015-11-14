@@ -237,38 +237,46 @@ struct DiamondRag{
   inline static void copyPbuf(const int idev, int x_start, int x_end, cudaStream_t& stream);
   inline static void bufSendMPIm(const int node, int x_start, int x_end);
   inline static void bufSendMPIp(const int node, int x_start, int x_end);
+  inline static void prepTransM(const int mpirank, int xstart, int xend, cudaStream_t& stream);
+  inline static void prepTransP(const int mpirank, int xstart, int xend, cudaStream_t& stream);
+  inline static void postTransM(const int mpirank, int xstart, int xend, cudaStream_t& stream);
+  inline static void postTransP(const int mpirank, int xstart, int xend, cudaStream_t& stream);
   inline static void BufCopyDiamond(halfRag* dst, halfRag* src, const int Xsize, cudaStream_t& stream) {
     CHECK_ERROR( cudaMemcpyAsync(dst, src, sizeof(halfRag)*Xsize, cudaMemcpyDeviceToDevice, stream) );
   }
-  inline static void bufMPIsendDiamond(halfRag* dst, halfRag* src, const int Xsize, const int dstnode, const int srcnode, void* host_send_buf, void* host_recv_buf) {
+  inline static void copyDmdToBuf  (halfRag* src, const int Xsize, const int dstnode, const int srcnode, void* host_send_buf, cudaStream_t& stream){
+    if(dstnode<srcnode && srcnode%NasyncNodes>0 || dstnode>srcnode && srcnode%NasyncNodes<NasyncNodes-1) 
+      CHECK_ERROR(cudaMemcpyAsync(host_send_buf,src,sizeof(halfRag)*Xsize,cudaMemcpyDeviceToHost, stream));
+  }
+  inline static void copyDmdFromBuf(halfRag* dst, const int Xsize, const int dstnode, const int srcnode, void* host_recv_buf, cudaStream_t& stream){
+    const int fromnode = srcnode+srcnode-dstnode;
+    if(fromnode<srcnode && srcnode%NasyncNodes>0 || fromnode>srcnode && srcnode%NasyncNodes<NasyncNodes-1)
+      CHECK_ERROR(cudaMemcpyAsync(dst,host_recv_buf,sizeof(halfRag)*Xsize,cudaMemcpyHostToDevice,stream));
+  }
+  inline static void bufMPIsendDiamond(const int Xsize, const int dstnode, const int srcnode, void* host_send_buf, void* host_recv_buf) {
     #ifdef MPI_ON
-      #ifdef GPUDIRECT_RDMA
-      #define MPI_GPUDIRECT(command,buf,size,mpitype,rank,tag) MPI_##command(buf,size,mpitype,rank,tag,MPI_COMM_WORLD,&req_##command);
-      #else
-      #define MPI_GPUDIRECT_Isend(buf,size,mpitype,rank,tag) { \
-        CHECK_ERROR(cudaMemcpy(host_send_buf,buf,size*sizeof(ftype),cudaMemcpyDeviceToHost));\
+//      #ifdef GPUDIRECT_RDMA
+//      #define MPI_GPUDIRECT(command,buf,size,mpitype,rank,tag) MPI_##command(buf,size,mpitype,rank,tag,MPI_COMM_WORLD,&req_##command);
+//      #else
+      #define MPI_GPUDIRECT_Isend(size,mpitype,rank,tag) { \
         MPI_Isend(host_send_buf,size,mpitype,rank,tag,MPI_COMM_WORLD,&req_Isend);}
-      #define MPI_GPUDIRECT_Irecv(buf,size,mpitype,rank,tag) { \
-        MPI_Irecv(host_recv_buf,size,mpitype,rank,tag,MPI_COMM_WORLD,&req_Irecv);\
-        MPI_Wait(&req_Irecv,&stat);\
-        CHECK_ERROR(cudaMemcpy(buf,host_recv_buf,size*sizeof(ftype),cudaMemcpyHostToDevice));}
-      #define MPI_GPUDIRECT(command,buf,size,mpitype,rank,tag) { MPI_GPUDIRECT_##command(buf,size,mpitype,rank,tag); }
-      #endif
+      #define MPI_GPUDIRECT_Irecv(size,mpitype,rank,tag) { \
+        MPI_Irecv(host_recv_buf,size,mpitype,rank,tag,MPI_COMM_WORLD,&req_Irecv);}
+      #define MPI_GPUDIRECT(command,size,mpitype,rank,tag) { MPI_GPUDIRECT_##command(size,mpitype,rank,tag); }
+//      #endif
     //printf("MPIsendrecv src=%d dst=%d\n",srcnode,dstnode);
     MPI_Status stat; MPI_Request req_Isend,req_Irecv; int doSnd=0,doRcv=0;
     if(dstnode<srcnode && srcnode%NasyncNodes>0 || dstnode>srcnode && srcnode%NasyncNodes<NasyncNodes-1) {
-      MPI_GPUDIRECT(Isend, src, sizeof(halfRag)*Xsize/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
+      MPI_GPUDIRECT(Isend, sizeof(halfRag)*Xsize/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
       doSnd=1;
     }
     const int fromnode = srcnode+srcnode-dstnode;
     if(fromnode<srcnode && srcnode%NasyncNodes>0 || fromnode>srcnode && srcnode%NasyncNodes<NasyncNodes-1) {
-      MPI_GPUDIRECT(Irecv, dst, sizeof(halfRag)*Xsize/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
+      MPI_GPUDIRECT(Irecv, sizeof(halfRag)*Xsize/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
       doRcv=1;
     }
     if(doSnd) MPI_Wait(&req_Isend,&stat);
-    #ifdef GPUDIRECT_RDMA
     if(doRcv) MPI_Wait(&req_Irecv,&stat);
-    #endif
     #endif
   }
   template<const int Did> inline static void copyDiamond(DiamondRag* dstRag, DiamondRag* srcRag, DiamondRag* p2p_buf, cudaStream_t& stream) {
@@ -297,18 +305,18 @@ struct DiamondRag{
     //printf("MPIsendrecv src=%d dst=%d\n",srcnode,dstnode);
     MPI_Status stat; MPI_Request req_Isend,req_Irecv; int doSnd=0,doRcv=0;
     if(dstnode<srcnode && srcnode%NasyncNodes>0 || dstnode>srcnode && srcnode%NasyncNodes<NasyncNodes-1) {
-      if(Did==0) MPI_GPUDIRECT(Isend, &srcRag->Si[0        ].trifld, sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
-      if(Did==1) MPI_GPUDIRECT(Isend, &srcRag->Si[NDT*NDT/2].trifld, sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
-      if(Did==2) MPI_GPUDIRECT(Isend, &srcRag->Vi[0        ].trifld, sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
-      if(Did==3) MPI_GPUDIRECT(Isend, &srcRag->Vi[NDT*NDT/2].trifld, sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
+      if(Did==0) MPI_GPUDIRECT(Isend, sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
+      if(Did==1) MPI_GPUDIRECT(Isend, sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
+      if(Did==2) MPI_GPUDIRECT(Isend, sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
+      if(Did==3) MPI_GPUDIRECT(Isend, sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
       doSnd=1;
     }
     const int fromnode = srcnode+srcnode-dstnode;
     if(fromnode<srcnode && srcnode%NasyncNodes>0 || fromnode>srcnode && srcnode%NasyncNodes<NasyncNodes-1) {
-      if(Did==0) MPI_GPUDIRECT(Irecv, &dstRag->Si[0        ].trifld, sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
-      if(Did==1) MPI_GPUDIRECT(Irecv, &dstRag->Si[NDT*NDT/2].trifld, sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
-      if(Did==2) MPI_GPUDIRECT(Irecv, &dstRag->Vi[0        ].trifld, sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
-      if(Did==3) MPI_GPUDIRECT(Irecv, &dstRag->Vi[NDT*NDT/2].trifld, sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
+      if(Did==0) MPI_GPUDIRECT(Irecv, sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
+      if(Did==1) MPI_GPUDIRECT(Irecv, sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
+      if(Did==2) MPI_GPUDIRECT(Irecv, sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
+      if(Did==3) MPI_GPUDIRECT(Irecv, sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
       doRcv=1;
     }
     if(doSnd) MPI_Wait(&req_Isend,&stat);
@@ -468,11 +476,23 @@ inline void DiamondRag::copyMbuf(const int idev, int xstart, int xend, cudaStrea
 inline void DiamondRag::copyPbuf(const int idev, int xstart, int xend, cudaStream_t& stream){ //diamonds 0 and 3
   if(xend>xstart) BufCopyDiamond( &parsHost.p2pBufM[idev+1][xstart], &parsHost.p2pBufP[idev][xstart], xend-xstart, stream);
 }
+inline void DiamondRag::prepTransM(const int mpirank, int xstart, int xend, cudaStream_t& stream){
+  if(xend>xstart) copyDmdToBuf  ( &parsHost.p2pBufM[0     ][xstart], xend-xstart, mpirank-1, mpirank, parsHost.rdma_send_buf, stream);
+}
+inline void DiamondRag::postTransM(const int mpirank, int xstart, int xend, cudaStream_t& stream){
+  if(xend>xstart) copyDmdFromBuf( &parsHost.p2pBufP[NDev-1][xstart], xend-xstart, mpirank-1, mpirank, parsHost.rdma_recv_buf, stream);
+}
+inline void DiamondRag::prepTransP(const int mpirank, int xstart, int xend, cudaStream_t& stream){
+  if(xend>xstart) copyDmdToBuf  ( &parsHost.p2pBufP[NDev-1][xstart], xend-xstart, mpirank+1, mpirank, parsHost.rdma_send_buf, stream);
+}
+inline void DiamondRag::postTransP(const int mpirank, int xstart, int xend, cudaStream_t& stream){
+  if(xend>xstart) copyDmdFromBuf( &parsHost.p2pBufM[0     ][xstart], xend-xstart, mpirank+1, mpirank, parsHost.rdma_recv_buf, stream);
+}
 inline void DiamondRag::bufSendMPIm(const int mpirank, int xstart, int xend){
-  if(xend>xstart) bufMPIsendDiamond( &parsHost.p2pBufP[NDev-1][xstart], &parsHost.p2pBufM[0][xstart], xend-xstart, mpirank-1, mpirank, parsHost.rdma_send_buf, parsHost.rdma_recv_buf);
+  if(xend>xstart) bufMPIsendDiamond( xend-xstart, mpirank-1, mpirank, parsHost.rdma_send_buf, parsHost.rdma_recv_buf);
 }
 inline void DiamondRag::bufSendMPIp(const int mpirank, int xstart, int xend){
-  if(xend>xstart) bufMPIsendDiamond( &parsHost.p2pBufM[0][xstart], &parsHost.p2pBufP[NDev-1][xstart], xend-xstart, mpirank+1, mpirank, parsHost.rdma_send_buf, parsHost.rdma_recv_buf);
+  if(xend>xstart) bufMPIsendDiamond( xend-xstart, mpirank+1, mpirank, parsHost.rdma_send_buf, parsHost.rdma_recv_buf);
 }
 inline void DiamondRag::copyM(const int idev, int ixrag, cudaStream_t& stream){ //diamonds 0 and 3
   copyDiamond<0>( &parsHost.rags[idev-1][(ixrag%Ns+1)*NStripe[idev-1]-1], &parsHost.rags[idev  ][ ixrag%Ns   *NStripe[idev  ]  ], parsHost.p2p_buf[idev-1], stream );

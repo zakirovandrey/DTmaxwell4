@@ -23,7 +23,7 @@ typedef float ftype;
 //#define TEST_RATE 1
 #define USE_WINDOW
 #define COFFS_DEFAULT
-//#define TIMERS_ON
+#define TIMERS_ON
 //#define SWAP_DATA
 //#define CLICK_BOOM
 #define SHARED_SIZE 5

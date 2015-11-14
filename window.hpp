@@ -30,18 +30,31 @@ struct Window {
   DiamondRagPML* dataPMLsL, *dataPMLsR;
   double GPUcalctime, RAMcopytime, Textime;
   double disbal[NDev];
-  cudaStream_t streamCopy;
+  cudaStream_t streamCopy[NDev];
   double timerPMLtop, timerI, timerDm[NDev];
   double timerPMLbot, timerX, timerDo[NDev];
   double timerP, timerCopy, timerExec;
-  cudaEvent_t copyEventStart, copyEventEnd;
+  cudaEvent_t copyEventStart[NDev], copyEventEnd[NDev];
 
   int tDnum;
   bool doneMemcopy;
   int node, subnode, Nprocs;
   static mpi_message mes[8];
-  Window(): GPUcalctime(0),RAMcopytime(0),Textime(0),tDnum(0),doneMemcopy(0) { CHECK_ERROR( cudaStreamCreate(&streamCopy) ); for(int idev=0;idev<NDev;idev++) disbal[idev]=0; }
-  ~Window() { CHECK_ERROR( cudaStreamDestroy(streamCopy) ); CHECK_ERROR( cudaEventDestroy(copyEventStart) ); CHECK_ERROR( cudaEventDestroy(copyEventEnd) ); }
+  Window(): GPUcalctime(0),RAMcopytime(0),Textime(0),tDnum(0),doneMemcopy(0) { 
+    for(int idev=0;idev<NDev;idev++) { 
+      CHECK_ERROR( cudaSetDevice(idev) ); 
+      CHECK_ERROR( cudaStreamCreate(&streamCopy[idev]) ); 
+      disbal[idev]=0;
+    }
+    CHECK_ERROR(cudaSetDevice(0)); 
+  }
+  ~Window() { 
+    for(int idev=0;idev<NDev;idev++) {
+      CHECK_ERROR( cudaStreamDestroy(streamCopy[idev]) ); 
+      CHECK_ERROR( cudaEventDestroy(copyEventStart[idev]) ); 
+      CHECK_ERROR( cudaEventDestroy(copyEventEnd[idev]) ); 
+    }
+  }
   void prepare(){
     x0 = Ns-Ntime-NTorres; w0=Np+x0; parsHost.wleft=Np; parsHost.GPUx0=w0-x0; copy2dev(parsHost, pars);
     if(Ns-Ntime<2*NTorres) { printf("Error: Ns-Ntime<2*NTorres | %d-%d<2*%d \n", Ns,Ntime,NTorres); exit(-1); }
@@ -78,9 +91,12 @@ struct Window {
     timerPMLtop=0; timerI=0; for(int i=0;i<NDev;i++) timerDm[i]=0;
     timerPMLbot=0; timerX=0; for(int i=0;i<NDev;i++) timerDo[i]=0;
     timerP=0; timerCopy=0; timerExec=0;
-    CHECK_ERROR( cudaEventCreate(&copyEventStart) );
-    CHECK_ERROR( cudaEventCreate(&copyEventEnd  ) );
-    
+    for(int idev=0;idev<NDev;idev++) {
+      CHECK_ERROR( cudaSetDevice(idev) ); 
+      CHECK_ERROR( cudaEventCreate(&copyEventStart[idev]) );
+      CHECK_ERROR( cudaEventCreate(&copyEventEnd[idev]  ) );
+    }
+      CHECK_ERROR( cudaSetDevice(0) ); 
   }
   void finalize(){ 
     #ifdef DROP_DATA
@@ -129,13 +145,23 @@ struct Window {
       } }
       if(iw+Ntime+1-Ns>=nR && node!=Nprocs-1 || iw+Ntime+1<nL && node!=0) doneMemcopy=true;
       if(!doneMemcopy) {
-        CHECK_ERROR(cudaEventRecord(copyEventStart, streamCopy));
+        for(int idev=0; idev<NDev; idev++) {
+          CHECK_ERROR( cudaSetDevice(idev) ); 
+          CHECK_ERROR( cudaEventRecord(copyEventStart[idev], streamCopy[idev]) );
+        } CHECK_ERROR( cudaSetDevice(0) ); 
         if(!isOnlyMemcopy || isOnlyMemcopyDtH) MemcopyDtH(ix);
         if(!isOnlyMemcopy || isOnlyMemcopyHtD) MemcopyHtD(ix); 
-        CHECK_ERROR(cudaEventRecord(copyEventEnd, streamCopy));
-        CHECK_ERROR( cudaStreamSynchronize(streamCopy) );
-        float elapsed;
-        CHECK_ERROR( cudaEventElapsedTime(&elapsed, copyEventStart, copyEventEnd) );
+        for(int idev=0; idev<NDev; idev++) {
+          CHECK_ERROR( cudaSetDevice(idev) ); 
+          CHECK_ERROR( cudaEventRecord(copyEventEnd[idev], streamCopy[idev]) );
+          CHECK_ERROR( cudaStreamSynchronize(streamCopy[idev]) );
+        } CHECK_ERROR( cudaSetDevice(0) );
+        float elapsed=0;
+        for(int idev=0; idev<NDev; idev++) {
+          float elapsed_idev;
+          CHECK_ERROR( cudaEventElapsedTime(&elapsed_idev, copyEventStart[idev], copyEventEnd[idev]) );
+          elapsed=max(elapsed,elapsed_idev);
+        }
         timerCopy+= elapsed; timerExec+=elapsed;
         doneMemcopy=true;
       }
@@ -153,18 +179,18 @@ struct Window {
     } 
     if(ixhost-Ns==Np-1 || ixhost==Np-Npmlx/2-1 || ixhost-Ns==Npmlx/2 || ixhost==-1) CHECK_ERROR( cudaSetDevice(0) );
     for(int idev=0, iy=0; idev<NDev; iy+=NStripe[idev], idev++) {
-      if(ixhost   <Np      && ixhost   >=0         ) CHECK_ERROR( cudaMemcpyAsync(&data     [ixhost*Na+iy]                      , &parsHost.rags     [idev][ixdev*NStripe[idev]], sizeof(DiamondRag    )*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy) );
-      if(ixhost-Ns<Np      && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.rags     [idev][ixdev*NStripe[idev]], &data     [(ixhost-Ns)*Na+iy]                 , sizeof(DiamondRag    )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy) );
-      if(ixhost<dispReg::sR && ixhost>=dispReg::sL ) CHECK_ERROR( cudaMemcpyAsync(&dataDisp [ixhost*Na+iy]                      , &parsHost.ragsDisp [idev][ixdev*NStripe[idev]], sizeof(DiamondRagDisp)*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy) );
-      if(ixhost-Ns<dispReg::sR && ixhost-Ns>=dispReg::sL) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsDisp [idev][ixdev*NStripe[idev]], &dataDisp [(ixhost-Ns)*Na+iy]            , sizeof(DiamondRagDisp)*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy) );
-      if(ixhost   <Npmlx/2 && ixhost   >=0         ) CHECK_ERROR( cudaMemcpyAsync(&dataPMLsL[ixhost*Na+iy]                      , &parsHost.ragsPMLsL[idev][ixdev*NStripe[idev]], sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy) );
-      if(ixhost-Ns<Npmlx/2 && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLsL[idev][ixdev*NStripe[idev]], &dataPMLsL[(ixhost-Ns)*Na+iy]                 , sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy) );
-      if(ixhost   <Np      && ixhost   >=Np-Npmlx/2) CHECK_ERROR( cudaMemcpyAsync(&dataPMLsR[(ixhost-Np+Npmlx/2)*Na+iy]                      , &parsHost.ragsPMLsR[idev][(ixdev-Ns+Npmlx/2)*NStripe[idev]], sizeof(DiamondRagPML)*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy) );
-      if(ixhost-Ns<Np      && ixhost-Ns>=Np-Npmlx/2) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLsR[idev][(ixdev-Ns+Npmlx/2)*NStripe[idev]], &dataPMLsR[(ixhost-Ns-Np+Npmlx/2)*Na+iy]                   , sizeof(DiamondRagPML)*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy) );
-      if(ixhost-Ns<Np      && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsInd  [idev][ixdev*NStripe[idev]], &dataInd  [(ixhost-Ns)*Na+iy]                 , sizeof(ModelRag     )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy) );
+      if(ixhost   <Np      && ixhost   >=0         ) CHECK_ERROR( cudaMemcpyAsync(&data     [ixhost*Na+iy]                      , &parsHost.rags     [idev][ixdev*NStripe[idev]], sizeof(DiamondRag    )*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy[idev]) );
+      if(ixhost-Ns<Np      && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.rags     [idev][ixdev*NStripe[idev]], &data     [(ixhost-Ns)*Na+iy]                 , sizeof(DiamondRag    )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy[idev]) );
+      if(ixhost<dispReg::sR && ixhost>=dispReg::sL ) CHECK_ERROR( cudaMemcpyAsync(&dataDisp [ixhost*Na+iy]                      , &parsHost.ragsDisp [idev][ixdev*NStripe[idev]], sizeof(DiamondRagDisp)*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy[idev]) );
+      if(ixhost-Ns<dispReg::sR && ixhost-Ns>=dispReg::sL) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsDisp [idev][ixdev*NStripe[idev]], &dataDisp [(ixhost-Ns)*Na+iy]            , sizeof(DiamondRagDisp)*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy[idev]) );
+      if(ixhost   <Npmlx/2 && ixhost   >=0         ) CHECK_ERROR( cudaMemcpyAsync(&dataPMLsL[ixhost*Na+iy]                      , &parsHost.ragsPMLsL[idev][ixdev*NStripe[idev]], sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy[idev]) );
+      if(ixhost-Ns<Npmlx/2 && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLsL[idev][ixdev*NStripe[idev]], &dataPMLsL[(ixhost-Ns)*Na+iy]                 , sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy[idev]) );
+      if(ixhost   <Np      && ixhost   >=Np-Npmlx/2) CHECK_ERROR( cudaMemcpyAsync(&dataPMLsR[(ixhost-Np+Npmlx/2)*Na+iy]                      , &parsHost.ragsPMLsR[idev][(ixdev-Ns+Npmlx/2)*NStripe[idev]], sizeof(DiamondRagPML)*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy[idev]) );
+      if(ixhost-Ns<Np      && ixhost-Ns>=Np-Npmlx/2) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLsR[idev][(ixdev-Ns+Npmlx/2)*NStripe[idev]], &dataPMLsR[(ixhost-Ns-Np+Npmlx/2)*Na+iy]                   , sizeof(DiamondRagPML)*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy[idev]) );
+      if(ixhost-Ns<Np      && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsInd  [idev][ixdev*NStripe[idev]], &dataInd  [(ixhost-Ns)*Na+iy]                 , sizeof(ModelRag     )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy[idev]) );
     }
-      if(ixhost   <Np && ixhost   >=0) CHECK_ERROR( cudaMemcpyAsync(&dataPMLa[ixhost*Npmly]                  , &parsHost.ragsPMLa  [ixdev*Npmly]        , sizeof(DiamondRagPML)*1*Npmly        , cudaMemcpyDeviceToHost, streamCopy) );
-      if(ixhost-Ns<Np && ixhost-Ns>=0) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLa  [ixdev*Npmly]        , &dataPMLa[(ixhost-Ns)*Npmly]             , sizeof(DiamondRagPML)*1*Npmly        , cudaMemcpyHostToDevice, streamCopy) );
+      if(ixhost   <Np && ixhost   >=0) CHECK_ERROR( cudaMemcpyAsync(&dataPMLa[ixhost*Npmly]                  , &parsHost.ragsPMLa  [ixdev*Npmly]        , sizeof(DiamondRagPML)*1*Npmly        , cudaMemcpyDeviceToHost, streamCopy[NDev-1]) );
+      if(ixhost-Ns<Np && ixhost-Ns>=0) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLa  [ixdev*Npmly]        , &dataPMLa[(ixhost-Ns)*Npmly]             , sizeof(DiamondRagPML)*1*Npmly        , cudaMemcpyHostToDevice, streamCopy[NDev-1]) );
   }
   inline void RAMexchDtH(const int ixdev, const int ixhost) {
     DEBUG_PRINT(("exchange copy Xdevice->Xhost = %d->%d  // %d // (node %d) mallocR FreeR mallocL FreeL / %d %d %d %d\n", ixdev, ixhost, ixhost   <Np && ixhost   >=0, node, ixhost-Ns==Np-1, ixhost==Np-Npmlx/2-1, ixhost-Ns==Npmlx/2, ixhost==-1));
@@ -178,24 +204,24 @@ struct Window {
     } 
     if(ixhost-Ns==Np-1 || ixhost==Np-Npmlx/2-1 || ixhost-Ns==Npmlx/2 || ixhost==-1) CHECK_ERROR( cudaSetDevice(0) );
     for(int idev=0, iy=0; idev<NDev; iy+=NStripe[idev], idev++) {
-      if(ixhost   <Np      && ixhost   >=0         ) CHECK_ERROR( cudaMemcpyAsync(&data     [ ixhost            *Na+iy], &parsHost.rags     [idev][ ixdev            *NStripe[idev]], sizeof(DiamondRag    )*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy) );
-      if(ixhost<dispReg::sR && ixhost>=dispReg::sL ) CHECK_ERROR( cudaMemcpyAsync(&dataDisp [ ixhost            *Na+iy], &parsHost.ragsDisp [idev][ ixdev            *NStripe[idev]], sizeof(DiamondRagDisp)*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy) );
-      if(ixhost   <Npmlx/2 && ixhost   >=0         ) CHECK_ERROR( cudaMemcpyAsync(&dataPMLsL[ ixhost            *Na+iy], &parsHost.ragsPMLsL[idev][ ixdev            *NStripe[idev]], sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy) );
-      if(ixhost   <Np      && ixhost   >=Np-Npmlx/2) CHECK_ERROR( cudaMemcpyAsync(&dataPMLsR[(ixhost-Np+Npmlx/2)*Na+iy], &parsHost.ragsPMLsR[idev][(ixdev-Ns+Npmlx/2)*NStripe[idev]], sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy) );
+      if(ixhost   <Np      && ixhost   >=0         ) CHECK_ERROR( cudaMemcpyAsync(&data     [ ixhost            *Na+iy], &parsHost.rags     [idev][ ixdev            *NStripe[idev]], sizeof(DiamondRag    )*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy[idev]) );
+      if(ixhost<dispReg::sR && ixhost>=dispReg::sL ) CHECK_ERROR( cudaMemcpyAsync(&dataDisp [ ixhost            *Na+iy], &parsHost.ragsDisp [idev][ ixdev            *NStripe[idev]], sizeof(DiamondRagDisp)*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy[idev]) );
+      if(ixhost   <Npmlx/2 && ixhost   >=0         ) CHECK_ERROR( cudaMemcpyAsync(&dataPMLsL[ ixhost            *Na+iy], &parsHost.ragsPMLsL[idev][ ixdev            *NStripe[idev]], sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy[idev]) );
+      if(ixhost   <Np      && ixhost   >=Np-Npmlx/2) CHECK_ERROR( cudaMemcpyAsync(&dataPMLsR[(ixhost-Np+Npmlx/2)*Na+iy], &parsHost.ragsPMLsR[idev][(ixdev-Ns+Npmlx/2)*NStripe[idev]], sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyDeviceToHost, streamCopy[idev]) );
     }
-      if(ixhost   <Np      && ixhost   >=0         ) CHECK_ERROR( cudaMemcpyAsync(&dataPMLa [ ixhost            *Npmly], &parsHost.ragsPMLa       [ ixdev*Npmly                    ], sizeof(DiamondRagPML)*1*Npmly        , cudaMemcpyDeviceToHost, streamCopy) );
+      if(ixhost   <Np      && ixhost   >=0         ) CHECK_ERROR( cudaMemcpyAsync(&dataPMLa [ ixhost            *Npmly], &parsHost.ragsPMLa       [ ixdev*Npmly                    ], sizeof(DiamondRagPML)*1*Npmly        , cudaMemcpyDeviceToHost, streamCopy[NDev-1]) );
   }
   inline void RAMexchHtD(const int ixdev, const int ixhost) {
     DEBUG_PRINT(("exchange copy Xhost->Xdevice = %d->%d  // %d // (node %d)\n", ixhost-Ns, ixdev, ixhost-Ns<Np && ixhost-Ns>=0, node));
     //DEBUG_MPI  (("exchange copy Xhost->Xdevice = %d->%d  // %d // (node %d)\n", ixhost-Ns, ixdev, ixhost-Ns<Np && ixhost-Ns>=0, node));
     for(int idev=0, iy=0; idev<NDev; iy+=NStripe[idev], idev++) {
-      if(ixhost-Ns<Np      && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.rags     [idev][ ixdev            *NStripe[idev]], &data     [(ixhost-Ns)           *Na+iy], sizeof(DiamondRag    )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy) );
-      if(ixhost-Ns<dispReg::sR && ixhost-Ns>=dispReg::sL ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsDisp [idev][ ixdev      *NStripe[idev]], &dataDisp [(ixhost-Ns)           *Na+iy], sizeof(DiamondRagDisp)*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy) );
-      if(ixhost-Ns<Npmlx/2 && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLsL[idev][ ixdev            *NStripe[idev]], &dataPMLsL[(ixhost-Ns)           *Na+iy], sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy) );
-      if(ixhost-Ns<Np      && ixhost-Ns>=Np-Npmlx/2) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLsR[idev][(ixdev-Ns+Npmlx/2)*NStripe[idev]], &dataPMLsR[(ixhost-Ns-Np+Npmlx/2)*Na+iy], sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy) );
-      if(ixhost-Ns<Np      && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsInd  [idev][ ixdev            *NStripe[idev]], &dataInd  [(ixhost-Ns)           *Na+iy], sizeof(ModelRag      )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy) );
+      if(ixhost-Ns<Np      && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.rags     [idev][ ixdev            *NStripe[idev]], &data     [(ixhost-Ns)           *Na+iy], sizeof(DiamondRag    )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy[idev]) );
+      if(ixhost-Ns<dispReg::sR && ixhost-Ns>=dispReg::sL ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsDisp [idev][ ixdev      *NStripe[idev]], &dataDisp [(ixhost-Ns)           *Na+iy], sizeof(DiamondRagDisp)*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy[idev]) );
+      if(ixhost-Ns<Npmlx/2 && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLsL[idev][ ixdev            *NStripe[idev]], &dataPMLsL[(ixhost-Ns)           *Na+iy], sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy[idev]) );
+      if(ixhost-Ns<Np      && ixhost-Ns>=Np-Npmlx/2) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLsR[idev][(ixdev-Ns+Npmlx/2)*NStripe[idev]], &dataPMLsR[(ixhost-Ns-Np+Npmlx/2)*Na+iy], sizeof(DiamondRagPML )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy[idev]) );
+      if(ixhost-Ns<Np      && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsInd  [idev][ ixdev            *NStripe[idev]], &dataInd  [(ixhost-Ns)           *Na+iy], sizeof(ModelRag      )*1*NStripe[idev], cudaMemcpyHostToDevice, streamCopy[idev]) );
     }
-      if(ixhost-Ns<Np      && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLa       [ ixdev            *Npmly        ], &dataPMLa [(ixhost-Ns)           *Npmly], sizeof(DiamondRagPML)*1*Npmly        , cudaMemcpyHostToDevice, streamCopy) );
+      if(ixhost-Ns<Np      && ixhost-Ns>=0         ) CHECK_ERROR( cudaMemcpyAsync(&parsHost.ragsPMLa       [ ixdev            *Npmly        ], &dataPMLa [(ixhost-Ns)           *Npmly], sizeof(DiamondRagPML)*1*Npmly        , cudaMemcpyHostToDevice, streamCopy[NDev-1]) );
   }
   void Memcopy() {
     for(int itorre=NTorres-1; itorre>=0; itorre--) { int ix=(x0+1+Ntime+itorre)%Ns; RAMexch(ix, w0+(ix-x0+Ns)%Ns); }
@@ -225,7 +251,7 @@ struct Window {
   }
   void synchronize() {
     double t0=omp_get_wtime();
-    CHECK_ERROR( cudaStreamSynchronize(streamCopy) );
+    for(int idev=0; idev<NDev; idev++) CHECK_ERROR( cudaStreamSynchronize(streamCopy[idev]) );
     CHECK_ERROR( cudaDeviceSynchronize() );
     DEBUG_PRINT(("window synchronization\n"));
     x0 = (x0-NTorres+Ns)%Ns; w0-=NTorres; parsHost.wleft-=NTorres; parsHost.GPUx0=w0-x0; copy2dev(parsHost, pars);
