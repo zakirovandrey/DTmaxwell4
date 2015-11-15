@@ -23,7 +23,7 @@ typedef float ftype;
 //#define TEST_RATE 1
 #define USE_WINDOW
 #define COFFS_DEFAULT
-#define TIMERS_ON
+//#define TIMERS_ON
 //#define SWAP_DATA
 //#define CLICK_BOOM
 #define SHARED_SIZE 5
@@ -55,7 +55,7 @@ const int NyBloch=1;//200;
 #define USE_TEX_2D
 #undef USE_TEX_2D
 
-const int Npmlx=2*1;//2*24;
+const int Npmlx=2*2;//2*24;
 const int Npmly=0*2*1;//24;
 const int Npmlz=0*2*16;//128;
 
