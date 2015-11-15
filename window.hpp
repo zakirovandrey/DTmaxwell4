@@ -145,6 +145,7 @@ struct Window {
       } }
       if(iw+Ntime+1-Ns>=nR && node!=Nprocs-1 || iw+Ntime+1<nL && node!=0) doneMemcopy=true;
       if(!doneMemcopy) {
+        #ifdef TIMERS_ON
         for(int idev=0; idev<NDev; idev++) {
           CHECK_ERROR( cudaSetDevice(idev) ); 
           CHECK_ERROR( cudaEventRecord(copyEventStart[idev], streamCopy[idev]) );
@@ -163,6 +164,11 @@ struct Window {
           elapsed=max(elapsed,elapsed_idev);
         }
         timerCopy+= elapsed; timerExec+=elapsed;
+        #else
+        if(!isOnlyMemcopy || isOnlyMemcopyDtH) MemcopyDtH(ix);
+        if(!isOnlyMemcopy || isOnlyMemcopyHtD) MemcopyHtD(ix); 
+        for(int idev=0; idev<NDev; idev++) CHECK_ERROR( cudaStreamSynchronize(streamCopy[idev]) );
+        #endif
         doneMemcopy=true;
       }
     }
