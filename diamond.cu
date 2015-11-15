@@ -174,11 +174,13 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   }
   
   CHECK_ERROR( cudaStreamSynchronize(stP   ) );
+  #ifdef TIMERS_ON
   timerP     += ttP.gettime_rec();
   for(int idev=0; idev<NDev; idev++) {
     CHECK_ERROR(cudaSetDevice(idev));
     if(is_P[idev]) ttP.init(stP);
   } CHECK_ERROR(cudaSetDevice(0));
+  #endif
   if(NasyncNodes>1) ampi_exch.exch(even, ix, t0, Nt, mpirank);
   if(NasyncNodes>1) ampi_exch.exch_sync();
   for(int idev=0; idev<NDev; idev++) {
@@ -186,7 +188,9 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     if(is_P[idev] && even==1 ) DiamondRag::postTransM(mpirank, t0,Nt, stP);
     if(is_P[idev] && even==0 ) DiamondRag::postTransP(mpirank, t0,Nt, stP);
     if(is_P[idev]) CHECK_ERROR( cudaStreamSynchronize(stP) );
+    #ifdef TIMERS_ON
     if(is_P[idev]) ttP.record();
+    #endif
   } CHECK_ERROR(cudaSetDevice(0));
   CHECK_ERROR( cudaStreamSynchronize(stPMLbot) ); 
   CHECK_ERROR( cudaStreamSynchronize(stPMLtop) );
