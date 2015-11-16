@@ -106,7 +106,7 @@ struct Window {
   template<int even> inline void Dtorre(int ix, int Nt, int t0, double disbal[NDev], bool isPMLs=false, bool isTFSF=false);
   inline void Dtorres(int ix, int Nt, int t0, double disbal[NDev], bool isPMLs=false, bool isTFSF=false);
   void calcDtorres(const int nL=0, const int nR=Np, const bool isOnlyMemcopyDtH=false, const bool isOnlyMemcopyHtD=false) { 
-    double t0=omp_get_wtime();
+    //double t0=omp_get_wtime();
     DEBUG_MPI(("CalcDtorres OnlyMemcopyDtH=%d  OnlyMemcopyHtD=%d (node %d) wleft=%d\n", isOnlyMemcopyDtH, isOnlyMemcopyHtD, node, parsHost.wleft));
     //pthread_t tid = pthread_self();
     //cpu_set_t cpuset;
@@ -172,7 +172,7 @@ struct Window {
         doneMemcopy=true;
       }
     }
-    GPUcalctime+=omp_get_wtime()-t0;
+    //GPUcalctime+=omp_get_wtime()-t0;
   }
   inline void RAMexch(const int ixdev, const int ixhost) {
     DEBUG_PRINT(("exchange copy Xhost->Xdevice->Xhost = %d->%d->%d  \\ %d %d \\ mallocR FreeR mallocL FreeL / %d %d %d %d\n", ixhost-Ns, ixdev, ixhost, ixhost-Ns<Np && ixhost-Ns>=0, ixhost   <Np && ixhost   >=0, ixhost-Ns==Np-1, ixhost==Np-Npmlx/2-1, ixhost-Ns==Npmlx/2, ixhost==-1));
