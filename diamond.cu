@@ -58,15 +58,14 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   if(Nt<=t0 || Nt<=0) return;
   DEBUG_PRINT(("Dtorre%d isPMLs=%d isTFSF=%d ix=%d, t0=%d Nt=%d wleft=%d\n", even, isPMLs, isTFSF, ix,t0,Nt, parsHost.wleft));
   const int Nth=Nv; 
-  double tt1 = omp_get_wtime();
   CHECK_ERROR( cudaSetDevice(0) );
   #ifdef TIMERS_ON
   cuTimer ttDm[NDev], ttDo[NDev];
   cudaStream_t stPMLbot; CHECK_ERROR( cudaStreamCreate(&stPMLbot) ); cudaStream_t stI; CHECK_ERROR( cudaStreamCreate(&stI   ) ); cuTimer ttPMLtop, ttI;
   cudaStream_t stDm[NDev],stDo[NDev]; for(int i=0;i<NDev;i++) { if(i!=0) CHECK_ERROR( cudaSetDevice(i) ); CHECK_ERROR( cudaStreamCreate(&stDm[i]) ); CHECK_ERROR( cudaStreamCreate(&stDo[i]) ); ttDm[i].created=0; ttDo[i].created=0; }
   cudaStream_t stPMLtop; CHECK_ERROR( cudaStreamCreate(&stPMLtop) ); cudaStream_t stX; CHECK_ERROR( cudaStreamCreate(&stX   ) ); cuTimer ttPMLbot, ttX;
-  cudaStream_t stP; cuTimer ttP; if(even==0) { cudaSetDevice(NDev-1); CHECK_ERROR( cudaStreamCreate(&stP   ) ); } else
-                                 if(even==1) { cudaSetDevice(0     ); CHECK_ERROR( cudaStreamCreate(&stP   ) ); }
+  cudaStream_t stP; cuTimer ttP,ttPmpi; if(even==0) { cudaSetDevice(NDev-1); CHECK_ERROR( cudaStreamCreate(&stP   ) ); } else
+                                        if(even==1) { cudaSetDevice(0     ); CHECK_ERROR( cudaStreamCreate(&stP   ) ); }
   cuTimer ttMPIa;
   #else//TIMER_S_ON not def
   cudaStream_t stPMLbot; CHECK_ERROR( cudaStreamCreate(&stPMLbot) ); cudaStream_t stI; CHECK_ERROR( cudaStreamCreate(&stI   ) );
@@ -157,7 +156,9 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   CHECK_ERROR( cudaSetDevice(0) );
 
   float copytime=0;
+  bool doSynccopy=0;
   if(!doneMemcopy) {
+    doSynccopy=1;
     #ifdef TIMERS_ON
     for(int idev=0; idev<NDev; idev++) {
       CHECK_ERROR( cudaSetDevice(idev) ); 
@@ -168,41 +169,47 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     for(int idev=0; idev<NDev; idev++) {
       CHECK_ERROR( cudaSetDevice(idev) ); 
       CHECK_ERROR( cudaEventRecord(copyEventEnd[idev], streamCopy[idev]) );
-      CHECK_ERROR( cudaStreamSynchronize(streamCopy[idev]) );
     } CHECK_ERROR( cudaSetDevice(0) );
-    for(int idev=0; idev<NDev; idev++) {
-      float copytime_idev;
-      CHECK_ERROR( cudaEventElapsedTime(&copytime_idev, copyEventStart[idev], copyEventEnd[idev]) );
-      copytime=max(copytime,copytime_idev);
-    }
-    timerCopy+= copytime;
     #else
     if(even==0) MemcopyDtH(ix4copy);
     if(even==1) MemcopyHtD(ix4copy);
-    for(int idev=0; idev<NDev; idev++) CHECK_ERROR( cudaStreamSynchronize(streamCopy[idev]) );
     #endif
     if(even==1) doneMemcopy=true;
   }
   
+  double tt1 = omp_get_wtime();
   CHECK_ERROR( cudaStreamSynchronize(stP   ) );
   #ifdef TIMERS_ON
   timerP     += ttP.gettime_rec();
-  for(int idev=0; idev<NDev; idev++) {
-    CHECK_ERROR(cudaSetDevice(idev));
-    if(is_P[idev]) ttP.init(stP);
-  } CHECK_ERROR(cudaSetDevice(0));
   #endif
   if(NasyncNodes>1) ampi_exch.exch(even, ix, t0, Nt, mpirank);
   if(NasyncNodes>1) ampi_exch.exch_sync();
+  #ifdef TIMERS_ON
+  for(int idev=0; idev<NDev; idev++) {
+    CHECK_ERROR(cudaSetDevice(idev));
+    if(is_P[idev]) ttPmpi.init(stP);
+  } CHECK_ERROR(cudaSetDevice(0));
+  #endif
   if(NasyncNodes>1 && even==1 ) DiamondRag::postTransM(mpirank, t0,Nt, stP);
   if(NasyncNodes>1 && even==0 ) DiamondRag::postTransP(mpirank, t0,Nt, stP);
   if(NasyncNodes>1) CHECK_ERROR( cudaStreamSynchronize(stP) );
   #ifdef TIMERS_ON
   for(int idev=0; idev<NDev; idev++) {
     CHECK_ERROR(cudaSetDevice(idev));
-    if(is_P[idev]) ttP.record();
+    if(is_P[idev]) ttPmpi.record();
   } CHECK_ERROR(cudaSetDevice(0));
   #endif
+
+  if(doSynccopy) for(int idev=0; idev<NDev; idev++) CHECK_ERROR( cudaStreamSynchronize(streamCopy[idev]) );
+  #ifdef TIMERS_ON
+  if(doSynccopy) for(int idev=0; idev<NDev; idev++) {
+    float copytime_idev;
+    CHECK_ERROR( cudaEventElapsedTime(&copytime_idev, copyEventStart[idev], copyEventEnd[idev]) );
+    copytime=max(copytime,copytime_idev);
+  }
+  timerCopy+= copytime;
+  #endif
+
   CHECK_ERROR( cudaStreamSynchronize(stPMLbot) ); 
   CHECK_ERROR( cudaStreamSynchronize(stPMLtop) );
   CHECK_ERROR( cudaStreamSynchronize(stI   ) );
@@ -222,10 +229,10 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   #ifdef TIMERS_ON
   timerPMLtop+= ttPMLtop.gettime_rec(); timerI+= ttI.gettime_rec(); for(int i=0;i<NDev;i++) timerDm[i]+= ttDm[i].gettime_rec();
   timerPMLbot+= ttPMLbot.gettime_rec(); timerX+= ttX.gettime_rec(); for(int i=0;i<NDev;i++) timerDo[i]+= ttDo[i].gettime_rec();
-  timerP     += ttP.gettime_rec();
-  timerP+= ampi_exch.exch_time*1e3;
+  timerP     += ttPmpi.gettime_rec();
+  timerP     += ampi_exch.exch_time*1e3;
   
-  float calctime = max(ttPMLtop.diftime,max(ttPMLbot.diftime,max(ttI.diftime,max(ttX.diftime,ttP.diftime+ampi_exch.exch_time*1e3))));
+  float calctime = max(ttPMLtop.diftime,max(ttPMLbot.diftime,max(ttI.diftime,max(ttX.diftime,ttP.diftime+ttPmpi.diftime+ampi_exch.exch_time*1e3))));
   for(int i=0;i<NDev;i++) calctime=max(calctime,max(ttDm[i].diftime,ttDo[i].diftime));
   timerExec+= max(copytime, calctime);
   #endif
