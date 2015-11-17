@@ -291,19 +291,19 @@ void GeoParamsHost::set(){
   for(int i=0; i<Nprocs; i++) {
     if(node==i) printf("X-size=%d rags on node %d\n", mapNodeSize[i], i);
     #ifdef MPI_ON
-    if(mapNodeSize[i]<2*Ns) { printf("Data on node %d is too small\n", i); exit(-1); }
+    if(mapNodeSize[i]<2*Ns && Nprocs>1) { printf("Data on node %d is too small\n", i); exit(-1); }
     #endif
     accSizes+= mapNodeSize[i];
   }
   if(accSizes-Ns*(Nprocs-1)!=Np) { printf("Error: sum (mapNodes) must be = Np+Ns*(Nprocs-1)\n"); exit(-1); }
   #ifdef MPI_ON
-  if(mapNodeSize[0]       <=Npmlx/2+Ns+Ns) { printf("Error: mapNodeSize[0]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
-  if(mapNodeSize[Nprocs-1]<=Npmlx/2+Ns+Ns) { printf("Error: mapNodeSize[Nodes-1]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
+  if(mapNodeSize[0]       <=Npmlx/2+Ns+Ns && Nprocs>1) { printf("Error: mapNodeSize[0]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
+  if(mapNodeSize[Nprocs-1]<=Npmlx/2+Ns+Ns && Nprocs>1) { printf("Error: mapNodeSize[Nodes-1]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
   #endif
   if(Np%Ns!=0) { printf("Error: Np must be dividable by Ns\n"); exit(-1); }
   if(NB%NA!=0) { printf("Error: NB must be dividable by NA\n"); exit(-1); }
   if(NB<NA   ) { printf("Error: NB < NA\n"); exit(-1); }
-  omp_set_num_threads(2);
+  omp_set_num_threads(8);
 
   //dir= new string("/Run/zakirov/tmp/"); //ix=Nx+Nbase/2; Yshtype=0;
   dir= new std::string(im3DHost.drop_dir);
@@ -657,8 +657,8 @@ bool help_only=false, test_only=false;
 int Tsteps=Ntime*10;
 int _main(int argc, char** argv) {
   #ifdef MPI_ON
-  MPI_Init(&argc,&argv);
-  /*int ismpith;
+//  MPI_Init(&argc,&argv);
+  int ismpith;
   MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ismpith);
   switch(ismpith) {
     case MPI_THREAD_SINGLE:     printf("MPI multithreading implementation MPI_TREAD_SINGLE\n"); break;
@@ -666,7 +666,7 @@ int _main(int argc, char** argv) {
     case MPI_THREAD_SERIALIZED: printf("MPI multithreading implementation MPI_THREAD_SERIALIZED\n"); break;
     case MPI_THREAD_MULTIPLE:   printf("MPI multithreading implementation MPI_THREAD_MULTIPLE\n"); break;
     default: printf("Unknown MPI multithreading implementation\n"); break;
-  }*/
+  }
   //if (ismpith != MPI_THREAD_MULTIPLE) { printf("Error: MPI implementation does not support multithreading\n"); MPI_Abort(MPI_COMM_WORLD, 1); }
   #endif
   argv ++; argc --;
