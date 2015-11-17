@@ -400,7 +400,7 @@ struct GeoParams{
 
   ModelRag* ragsInd[NDev];
   DiamondRag* rags[NDev];
-  DiamondRagPML* ragsPMLa; 
+  DiamondRagPML* ragsPMLa[NDev]; 
   DiamondRagPML* ragsPMLsL[NDev]; 
   DiamondRagPML* ragsPMLsR[NDev]; 
   DiamondRagDisp* ragsDisp[NDev];

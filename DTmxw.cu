@@ -384,8 +384,7 @@ void GeoParamsHost::set(){
     CHECK_ERROR( cudaMalloc( (void**)&(ragsPMLsL[idev]), size_xzPMLs*NStripe[idev]    ) );
     CHECK_ERROR( cudaMalloc( (void**)&(ragsPMLsR[idev]), size_xzPMLs*NStripe[idev]    ) );
     #endif
-    if(idev==NDev-1)
-    CHECK_ERROR( cudaMalloc( (void**)& ragsPMLa       , szPMLa ) );
+    CHECK_ERROR( cudaMalloc( (void**)& ragsPMLa[idev]  , szPMLa ) );
     CHECK_ERROR( cudaMemset(rags    [idev], 0, size_xz    *NStripe[idev])  );
     CHECK_ERROR( cudaMemset(p2pBufM [idev], 0, szBuf)  );
     CHECK_ERROR( cudaMemset(p2pBufP [idev], 0, szBuf)  );
@@ -396,7 +395,7 @@ void GeoParamsHost::set(){
     cudaMemset(ragsPMLsR[idev], 0,  size_xzPMLs*NStripe[idev]);
     #endif
     if(idev==NDev-1)
-    CHECK_ERROR( cudaMemset(ragsPMLa     , 0,                     szPMLa) );
+    CHECK_ERROR( cudaMemset(ragsPMLa[idev], 0,                     szPMLa) );
     CHECK_ERROR( cudaMemGetInfo(&freemem[idev], &totalmem[idev]));
     printf("Node/subnode %3d/%d : device %d: GPU memory free %.2fM of %.2fM\n", node, subnode, idev, freemem[idev]/(1024.*1024.), totalmem[idev]/(1024.*1024.) );
   }
