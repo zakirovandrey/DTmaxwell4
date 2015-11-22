@@ -155,6 +155,11 @@ extern float calcTime, calcPerf; extern int TimeStep;
 extern bool recalc_at_once;
 extern char* FuncStr[];
 
+#ifdef MPI_ON
+extern MPI_Datatype MPI_DMDRAGTYPE;
+extern MPI_Datatype MPI_RAGPMLTYPE;
+extern MPI_Datatype MPI_HLFRAGTYPE;
+#endif
 struct DmdArraySe{
   ftype  fld[26][Nz];
   ftype2 fldPML[9][Npmlz];
@@ -267,12 +272,12 @@ struct DiamondRag{
     //printf("MPIsendrecv src=%d dst=%d\n",srcnode,dstnode);
     MPI_Status stat; MPI_Request req_Isend,req_Irecv; int doSnd=0,doRcv=0;
     if(dstnode<srcnode && srcnode%NasyncNodes>0 || dstnode>srcnode && srcnode%NasyncNodes<NasyncNodes-1) {
-      MPI_GPUDIRECT(Isend, sizeof(halfRag)*Xsize/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
+      MPI_GPUDIRECT(Isend, Xsize, MPI_HLFRAGTYPE, dstnode, 0 );
       doSnd=1;
     }
     const int fromnode = srcnode+srcnode-dstnode;
     if(fromnode<srcnode && srcnode%NasyncNodes>0 || fromnode>srcnode && srcnode%NasyncNodes<NasyncNodes-1) {
-      MPI_GPUDIRECT(Irecv, sizeof(halfRag)*Xsize/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
+      MPI_GPUDIRECT(Irecv, Xsize, MPI_HLFRAGTYPE, fromnode, 0 );
       doRcv=1;
     }
     if(doSnd) MPI_Wait(&req_Isend,&stat);

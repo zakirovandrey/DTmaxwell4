@@ -667,6 +667,12 @@ int _main(int argc, char** argv) {
     default: printf("Unknown MPI multithreading implementation\n"); break;
   }
   //if (ismpith != MPI_THREAD_MULTIPLE) { printf("Error: MPI implementation does not support multithreading\n"); MPI_Abort(MPI_COMM_WORLD, 1); }
+  MPI_Type_contiguous( sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, &MPI_DMDRAGTYPE );
+  MPI_Type_contiguous( sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, &MPI_RAGPMLTYPE );
+  MPI_Type_contiguous( sizeof(halfRag      )/sizeof(ftype), MPI_FTYPE, &MPI_HLFRAGTYPE );
+  MPI_Type_commit(&MPI_DMDRAGTYPE);
+  MPI_Type_commit(&MPI_RAGPMLTYPE);
+  MPI_Type_commit(&MPI_HLFRAGTYPE);
   #endif
   argv ++; argc --;
   im3DHost.reset(); parsHost.swap_dir=new std::string("./");
