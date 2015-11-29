@@ -211,9 +211,9 @@ extern texture<char, cudaTextureType3D> index_tex;
   DiamondRag      * __restrict__ RAGpc      = RAG0+ixp*dStepRagC;\
   DiamondRag      * __restrict__ RAGpm      = RAGpc-1;\
   DiamondRag      * __restrict__ RAGpp      = RAGpc+1;\
-  DiamondRagPML   * __restrict__ ApmlRAGcc  = &pars.ragsPMLa[idevC][ix *Npmly/2+get_pml_iy(iy)%(Npmly/2)];\
-  DiamondRagPML   * __restrict__ ApmlRAGmc  = &pars.ragsPMLa[idevC][ixm*Npmly/2+get_pml_iy(iy)%(Npmly/2)];\
-  DiamondRagPML   * __restrict__ ApmlRAGpc  = &pars.ragsPMLa[idevC][ixp*Npmly/2+get_pml_iy(iy)%(Npmly/2)];\
+  DiamondRagPML   * __restrict__ ApmlRAGcc  = &pars.ragsPMLa[idevC][ix *Npmly+get_pml_iy(iy)%(Npmly)];\
+  DiamondRagPML   * __restrict__ ApmlRAGmc  = &pars.ragsPMLa[idevC][ixm*Npmly+get_pml_iy(iy)%(Npmly)];\
+  DiamondRagPML   * __restrict__ ApmlRAGpc  = &pars.ragsPMLa[idevC][ixp*Npmly+get_pml_iy(iy)%(Npmly)];\
   DiamondRagPML   * __restrict__ SpmlRAGcc;/*  = &pars.ragsPMLs[idevC][((ix  <Npmlx/2)? ix   :(ix  -Ns+Npmlx))*dStepRagC   +iy-ymC];*/\
   DiamondRagPML   * __restrict__ SpmlRAGmc;/*  = &pars.ragsPMLs[idevC][((ix-1<Npmlx/2)?(ix-1):(ix-1-Ns+Npmlx))*dStepRagC   +iy-ymC];*/\
   DiamondRagPML   * __restrict__ SpmlRAGpc;/*  = &pars.ragsPMLs[idevC][((ix+1<Npmlx/2)?(ix+1):(ix+1-Ns+Npmlx))*dStepRagC   +iy-ymC];*/\
