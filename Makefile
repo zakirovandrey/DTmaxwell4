@@ -1,6 +1,6 @@
 #ARCH ?= #k100#geocluster #gpupc1 #D
 #USE_AIVLIB_MODEL ?= 1
-MPI_ON ?= 1
+#MPI_ON ?= 1
 USE_DOUBLE ?= 1
 
 ifeq      ($(COMP),k100)
@@ -10,9 +10,9 @@ ARCH := sm_35
 else ifeq ($(COMP),geocluster)
 ARCH := sm_50
 else ifeq ($(COMP),D)
-ARCH := sm_50
-else ifeq ($(COMP),ion)
 ARCH := sm_35
+else ifeq ($(COMP),ion)
+ARCH := sm_50
 else ifeq ($(COMP),supermic)
 ARCH := sm_52
 else
