@@ -16,13 +16,15 @@ typedef float ftype;
 #define NDev 1
 #define GPUDIRECT_RDMA
 
-//#define DROP_DATA
+#define DROP_DATA
 //#define USE_AIVLIB_MODEL
 //#define MPI_ON
 //#define MPI_TEST
 //#define TEST_RATE 1
+#define NOPMLS
 #define USE_WINDOW
 #define COFFS_DEFAULT
+#define COFFS_IN_DEVICE
 //#define TIMERS_ON
 //#define SWAP_DATA
 //#define CLICK_BOOM
@@ -55,15 +57,17 @@ const int NyBloch=1;//200;
 #define USE_TEX_2D
 #undef USE_TEX_2D
 
-const int Npmlx=2*2;//2*24;
-const int Npmly=0*2*1;//24;
+const int Nzw=128;
+
+const int Npmlx=2*1;//2*24;
+const int Npmly=2*0;//24;
 const int Npmlz=0*2*16;//128;
 
-const ftype ds=0.005, da=0.005, dv=0.005, dt=0.001;
+const ftype ds=0.005, da=0.005, dv=0.005, dt=0.0024;
 
 extern struct TFSFsrc{
   ftype tStop;
-  ftype srcXs, srcXa, srcXv;
+  ftype srcXs, srcXa, srcXv, sphR;
   ftype BoxMs, BoxPs; 
   ftype BoxMa, BoxPa; 
   ftype BoxMv, BoxPv;
@@ -72,6 +76,7 @@ extern struct TFSFsrc{
   //----------------------------------------------//
   ftype wavelength, w,k, Omega, kEnv, theta, phi;
   //-------------------------------------------//
+  ftype cSrc;
 
   void set(const double, const double, const double);
   void check();

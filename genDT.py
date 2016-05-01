@@ -18,14 +18,16 @@ def genfunc(Yt):
     if Yt[-4:]=='TFSF' or Yt[0]=="I": print >>fl, '#include "signal.h"'
     if Yt=="D" and spml==0: print >>fl, 'const int Nzb = 768*4/FTYPESIZE;'
     for Dcase in 0,1:
-      minB = "Nzb/Nz+Nz/(Nzb+1)" if Yt=="D" and spml==0 else "1"
-      print >>fl, '__global__ void __launch_bounds__(Nz,%s) %storre%s%d (int ix, int y0, int Nt, int t0) {'%(minB,("","PMLS")[spml],Yt,Dcase)
+      minB = "((Nzw>Nzb)?1:(Nzb/Nzw))" if Yt=="D" and spml==0 else "1"
+      print >>fl, 'template<int zform> __global__ void __launch_bounds__((Nzw>NzMax)?NzMax:Nzw,%s) %storre%s%d (int ix, int y0, int izBeg, int izEnd, int Nt, int t0) {'%(minB,("","PMLS")[spml],Yt,Dcase)
       print >>fl, '  REG_DEC(%d)'%Dcase
       if Yt[-4:]=='TFSF': print >>fl, '  #include "%s%d.inc.cu"'%(Yt,Dcase)
       else         : print >>fl, '  #include "%s%d%s.inc.cu"'%(Yt,Dcase,("","_pmls")[spml])
       #if Yt=='TFSF': print >>fl, '  if(inPMLv){\n    #include "D%d_pmlv.inc.cu"   \n  }else{\n    #include "TFSF%d.inc.cu"\n  }\n}'%(Dcase,Dcase)
       #else         : print >>fl, '  if(inPMLv){\n    #include "%s%d%s_pmlv.inc.cu"\n  }else{\n    #include "%s%d%s.inc.cu"\n  }\n}'%(Yt,Dcase,("","_pmls")[spml],Yt,Dcase,("","_pmls")[spml])
       print >>fl, '  POSTEND(%d)\n}'%Dcase
+      print >>fl, 'template __global__ void __launch_bounds__((Nzw>NzMax)?NzMax:Nzw,%s) %storre%s%d<0> (int ix, int y0, int izBeg, int izEnd, int Nt, int t0);'%(minB,("","PMLS")[spml],Yt,Dcase)
+      print >>fl, 'template __global__ void __launch_bounds__((Nzw>NzMax)?NzMax:Nzw,%s) %storre%s%d<1> (int ix, int y0, int izBeg, int izEnd, int Nt, int t0);'%(minB,("","PMLS")[spml],Yt,Dcase)
     fl.close()
     if Yt[-4:]=='TFSF' and spml==1: continue
     for zpml in 0,:

@@ -182,6 +182,8 @@ class data():
     if not self.name: return
     if isOutA(self.coord[1], data.Atype): return
     print "  //------- update %s"%self.typus,"xyz"[self.proj],self.coord
+    checkZdmd = "if(isCONz%s(%g,%g))"%(self.typus, (self.coord[0]+2*NDT)%(2*NDT), self.coord[2])
+    print "  %s{"%checkZdmd
     #print "  h = modelRag%s->h[%2d][iz];"%("MCP"[1+self.plsId[0]],self.fldind-self.fldindS*2-(self.proj if self.typus=="S" else 0) )
     hind = self.fldind-self.fldindS*2-(self.proj if self.typus=="S" else 0)
     #print "  TEXCOFF%s(%d, %+d, %+d, iz*2%+d, I,h[%2d]);"%(self.typus+('','xyz'[fld.proj])[fld.typus=='T'],hind,self.coord[0],self.coord[1],self.coord[2], hind)
@@ -289,6 +291,7 @@ class data():
           rot[i]+= "%s(%s-%s)*dtd%s"%(sign,self.aniso_neigh[i][iaver][difxyz][0].name, self.aniso_neigh[i][iaver][difxyz][1].name, "xyz"[difxyz])
       rot[i] = "(%s)*0.25"%rot[i]
       print "  %s+= AnisoE[%2d].coffAniso%s%s*%s;"%(self.name, hind, 'XYZ'[self.proj],'XYZ'[i], rot[i])
+    print "  }//checkZdmd"
     uniqdifN+= 1
 
   def Gyration(self,hind):
@@ -430,7 +433,7 @@ class DiamondTorre():
         if fld.hasdz and fld.typus!="S" and not (fld.typus=="V" and fld.proj==2):
           if fld.neigh[2][3] not in data.Shareds:# and fld.typus!="S" and not (fld.typus=="V" and fld.proj==2):
             shrn+=1
-            if not isOutA(fld.coord[1], data.Atype): print "  shared_fld[%2d][iz].%s = %s; //"%(shrn/2, 'xy'[shrn%2], fld.neigh[2][(1,0)[fld.coord[2]]].name), fld.coord[:2]
+            if not isOutA(fld.coord[1], data.Atype): print "  shared_fld[%2d][izP0].%s = %s; //"%(shrn/2, 'xy'[shrn%2], fld.neigh[2][(1,0)[fld.coord[2]]].name), fld.coord[:2]
           for zz in range(order):
             near = fld.neigh[2][zz]
             if near not in data.Registers and near not in data.Shareds: data.Shareds[near]="shared_fld[%2d][iz%s].%s"%(shrn/2, "PM"[near.coord[2]<0]+str(abs(near.coord[2]/2))+"mc"[near.coord[2]%2], 'xy'[shrn%2])

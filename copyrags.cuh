@@ -59,3 +59,24 @@ template<const int even> __device__ inline void save_buffer(DiamondRag* rag0, ha
     }
   }
 }
+__device__ inline int get_dev(const int iy, int& ym) {
+  int idev=0; ym=0;
+  while(iy>=ym && idev<NDev) { ym+=NStripe(idev); idev++; }
+  ym-=NStripe(idev-1);
+  return idev-1;
+}
+template<const int even> __global__ void bufsave (int ix, int y0, int Nt, int t0) {
+  const int iy=y0;
+  const int iz=threadIdx.x+blockIdx.x*blockDim.x; const int pml_iz=iz;
+  const bool inPMLv = (iz<Npmlz);
+  if(iz<0 || iz>=Nv) return;
+  int ymC=0;
+  const int curDev=get_dev(iy, ymC); 
+  DiamondRag      * __restrict__ RAG0       = &pars.rags[curDev][iy  -ymC];
+  int xstart=ix;
+  const bool isTopStripe = (curDev==NDev-1 && pars.subnode==NasyncNodes-1);
+  const bool isBotStripe = (curDev==0      && pars.subnode==0            );
+
+  if(iy==ymC+NStripe(curDev)-1 && !isTopStripe) if(even==0) save_buffer<0>(RAG0, pars.p2pBufP[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);
+  if(iy==ymC                   && !isBotStripe) if(even==1) save_buffer<1>(RAG0, pars.p2pBufM[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);
+}

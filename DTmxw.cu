@@ -220,16 +220,16 @@ double PMLgamma_func(int i, int N, ftype dstep){ //return 0;
   if(i>=N-3) return 0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(10)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(1000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
 }
-double PMLgamma_funcY(int i, int N, ftype dstep){ //return 0; 
+double PMLgamma_funcY(int i, int N, ftype dstep){ //return 0;
   if(i>=N-3) return 0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(10)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(1000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
@@ -238,7 +238,7 @@ double PMLgamma_funcZ(int i, int N, ftype dstep){ //return 0;
   if(i>=N-3) return 0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(10)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(1000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
@@ -343,6 +343,9 @@ void GeoParamsHost::set(){
   size_t szBuf       = Ntime*sizeof(halfRag      );
   size_t szPMLa      = Ns*Npmly*sizeof(DiamondRagPML);
   size_t size_xzPMLs = Npmlx/2*sizeof(DiamondRagPML);
+  #ifdef NOPMLS
+  size_xzPMLs = 0;
+  #endif
   size_t szPMLs      = Na*size_xzPMLs;
   size_t size_xzDisp =(dispReg::sR-dispReg::sL)*sizeof(DiamondRagDisp);
   size_t szDisp =Na*size_xzDisp;
@@ -535,7 +538,6 @@ void set_texture(char* index_arr, const int ix=0){
   CHECK_ERROR(cudaBindTextureToArray(index_tex, index_texArray));
 }
 
-enum {IndAir=0, IndBIG=1, IndGold=2, IndGGG=3};
 __device__ __constant__ CoffStruct coffs[Nmats];
 __device__ __constant__ DispStruct DispCoffs[Nmats];
 CoffStruct* __restrict__ coffsHost;
@@ -550,7 +552,7 @@ inline bool inCell(double y){
  };
 
 void init_material(char* &index_arr) {
-  const float n1=1, n2=sqrt(5.0), n3=sqrt(1.97*1.97);
+  const float n1=1, n2=sqrt(5.0), n3=sqrt(2*2);
   coffsHost     = new CoffStruct[Nmats];
   DispCoffsHost = new DispStruct[Nmats];
   coffsHost[IndAir  ].set_eps(1.0  , 0); DispCoffsHost[IndAir  ].setNondisp(); 
@@ -558,6 +560,12 @@ void init_material(char* &index_arr) {
   float3 gyr = make_float3(0.,0.,0.1);
   coffsHost[IndBIG  ].set_eps(n2*n2, 0, gyr.x,gyr.y,gyr.z); DispCoffsHost[IndBIG  ].setNondisp();
   coffsHost[IndGGG  ].set_eps(n3*n3, 0); DispCoffsHost[IndGGG  ].setNondisp();
+  coffsHost[IndOut  ].set_eps(100*100, 0); DispCoffsHost[IndOut  ].setNondisp();
+  coffsHost[IndSh1  ].set_eps(1*1, 0); DispCoffsHost[IndSh1  ].setNondisp();
+  coffsHost[IndSh2  ].set_eps(2*2, 0); DispCoffsHost[IndSh2  ].setNondisp();
+  coffsHost[IndSh3  ].set_eps(3*3, 0); DispCoffsHost[IndSh3  ].setNondisp();
+  coffsHost[IndSh4  ].set_eps(4*4, 0); DispCoffsHost[IndSh4  ].setNondisp();
+  coffsHost[IndSh5  ].set_eps(5*5, 0); DispCoffsHost[IndSh5  ].setNondisp();
   
   LorenzDisp ld1;
   LorenzDisp ld2;
@@ -566,8 +574,12 @@ void init_material(char* &index_arr) {
   vector<LorenzDisp> LDvec; LDvec.push_back(ld1); LDvec.push_back(ld2);
   DispCoffsHost[IndGold ].set(1, LDvec, LDvec.size(), 0);
 
-  CHECK_ERROR( cudaMemcpyToSymbol(coffs, coffsHost, sizeof(CoffStruct)*Nmats) );
-  CHECK_ERROR( cudaMemcpyToSymbol(DispCoffs, DispCoffsHost, sizeof(DispStruct)*Nmats) );
+  for(int idev=0; idev<NDev; idev++) {
+    CHECK_ERROR( cudaSetDevice(idev) );
+    CHECK_ERROR( cudaMemcpyToSymbol(coffs, coffsHost, sizeof(CoffStruct)*Nmats) );
+    CHECK_ERROR( cudaMemcpyToSymbol(DispCoffs, DispCoffsHost, sizeof(DispStruct)*Nmats) );
+  }
+  CHECK_ERROR( cudaSetDevice(0) );
   //------------------------------------------------//
 //  const int Nx=16, Ny=16, Nz=16;
   index_arr=new char[parsHost.IndNx*parsHost.IndNy*parsHost.IndNz];
@@ -580,7 +592,7 @@ void init_material(char* &index_arr) {
   {
     float x=ix*0.5*dx, y=iy*0.5*dy, z=iz*0.5*dz;
     float Xc=0.5*Np*NDT*dx, Yc=0.5*Na*NasyncNodes*NDT*dy, Zc=0.5*Nv*dz;
-    if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= Rparticle*Rparticle ) p[0]=IndGold;//1./(n2*n2);
+    if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= Rparticle*Rparticle ) p[0]=IndGGG;//1./(n2*n2);
 //    if( (z-Zc)*(z-Zc)<= Rparticle*Rparticle ) p[0]=IndGold;//1./(n2*n2);
     else p[0]=IndAir;
 /*    bool isGold=0;

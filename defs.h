@@ -31,10 +31,13 @@ template<class Ph, class Pd> static void copy2dev(Ph &hostP, Pd &devP) {
   CHECK_ERROR( cudaSetDevice(0) );
 }
 //__device__ __forceinline__ static bool isOutS(const int x) { return (x<0+NDT || x>=Ns*2*NDT-2*NDT); }
-__device__ __forceinline__ static bool isOutS(const int x) { return (x<0+NDT || x>=Ns*2*NDT-NDT); }
+__device__ __forceinline__ static bool isOutS(const int x) { return (x<=0+NDT || x>=Ns*2*NDT-NDT); }
 //__device__ __forceinline__ static bool isOutS(const int x) { return false; }
+#ifdef NOPMLS
+__device__ __forceinline__ static bool inPMLsync(const int x) { return 0; }
+#else
 __device__ __forceinline__ static bool inPMLsync(const int x) { return (x<Npmlx/2*2*NDT-NDT && x>=0 || x<Ns*2*NDT && x>=Ns*2*NDT-Npmlx/2*2*NDT+NDT); }
-//__device__ __forceinline__ static bool inPMLsync(const int x) { return true; }
+#endif
 
 #ifdef USE_TEX_REFS
 #define TEX_MODEL_TYPE 0
@@ -65,15 +68,16 @@ __device__ inline int get_idev(const int iy, int& ym) {
   return idev-1;
 }
 __device__ inline int Vrefl(const int iz, const int incell=0) {
-  return (iz+Nv)%Nv;
-  /*if(iz>=Nv) return Nv+Nv-iz-1-incell;*/
-  //return iz;
+  //return (iz+Nv)%Nv;
+  if(iz>=Nv) return Nv+Nv-iz-1-incell;
+  if(iz< 0 ) return -iz-incell;
+  return iz;
 }
 
 struct __align__(16) ftype8 { ftype4 u, v; };
 //extern __shared__ ftypr2 shared_fld[2][7][Nv];
 //extern __shared__ ftype2 shared_fld[(FTYPESIZE*Nv*28>0xc000)?7:14][Nv];
-extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
+extern __shared__ ftype2 shared_fld[SHARED_SIZE][NzMax];
 
 struct __align__(16) CoffStruct{
   float deps,depsXX,depsYY,depsZZ;
@@ -108,12 +112,28 @@ struct __align__(16) CoffStruct{
 };
 struct DispStruct;
 
-const int Nmats=5;
+enum {IndAir=0, IndBIG=1, IndGold=2, IndGGG=3, IndOut, IndSh1, IndSh2, IndSh3, IndSh4, IndSh5};
+const int Nmats=10;
 extern __device__ __constant__ CoffStruct coffs[Nmats];
 extern __device__ __constant__ DispStruct DispCoffs[Nmats];
 extern cudaArray* index_texArray;
 //#define TEXCOFFE(x,y,z) coffs[tex3D(index_tex, z,(y+Na*NDT)%(Na*NDT),x)].deps
 //#define TEXCOFFE(x,y,z) dtdrd24
+__device__ inline int get_mat_indev(int ix, int iy, int iz) {
+   float x=ix*0.5*dx, y=iy*0.5*dy, z=iz*0.5*dz;
+   float Xc=0.5*Np*NDT*dx, Yc=0.5*Na*NasyncNodes*NDT*dy, Zc=0.5*Nv*dz;
+   const ftype R1=1.0;
+   const ftype R2=2.0;
+   const ftype R3=3.0;
+   const ftype R4=3.9;
+   const ftype R5=4.0;
+   if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= R1*R1 ) return IndSh1;
+   if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= R2*R2 ) return IndSh2;
+   if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= R3*R3 ) return IndSh3;
+   if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= R4*R4 ) return IndSh4;
+   if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= R5*R5 ) return IndSh5;
+   else return IndOut;
+}
 #define TEXCOFFS(nind,xt,yt,z,I,h)  ;
 #define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = 1;
 #define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = 1;
@@ -134,13 +154,20 @@ extern texture<char, cudaTextureType2D> index_tex;
 #define TEXCOFFDISP(xt,yt,z) DispCoffs[tex2D(index_tex, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt))]
 #else//not USE_TEX_2D
 extern texture<char, cudaTextureType3D> index_tex;
-#define TEXCOFFVx(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = 1;//coffs[index].depsXX; AnisoE[nind] = coffs[index];
-#define TEXCOFFVy(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = 1;//coffs[index].depsYY; AnisoE[nind] = coffs[index];
-#define TEXCOFFVz(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = 1;//coffs[index].depsZZ; AnisoE[nind] = coffs[index];
+#define TEXCOFFVx(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = coffs[index].depsXX; AnisoE[nind] = coffs[index];
+#define TEXCOFFVy(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = coffs[index].depsYY; AnisoE[nind] = coffs[index];
+#define TEXCOFFVz(nind,xt,yt,z,I,h) index = tex3D(index_tex, z, (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt)); ArrcoffV[nind] = coffs[index].depsZZ; AnisoE[nind] = coffs[index];
 #define ISDISP(xt,yt,z) coffs[tex3D(index_tex, z,(yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt))].isDisp
 #define TEXCOFFDISP(xt,yt,z) DispCoffs[tex3D(index_tex, z,(yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), GLOBAL(xt))]
 #endif//USE_TEX_2D
 #endif//COFFS_DEFAULT
+#ifdef COFFS_IN_DEVICE
+#define TEXCOFFVx(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z); ArrcoffV[nind] = coffs[index].depsXX; AnisoE[nind] = coffs[index];
+#define TEXCOFFVy(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z); ArrcoffV[nind] = coffs[index].depsYY; AnisoE[nind] = coffs[index];
+#define TEXCOFFVz(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z); ArrcoffV[nind] = coffs[index].depsZZ; AnisoE[nind] = coffs[index];
+#define ISDISP(xt,yt,z) 0
+#define TEXCOFFDISP(xt,yt,z) DispCoffs[0]
+#endif//COFFS_IN_DEVICE
 
 #ifdef BLOCH_BND_Y
 #define tshift_coeff 0
@@ -158,10 +185,12 @@ extern texture<char, cudaTextureType3D> index_tex;
   const int tshift=tshift_coeff*pars.iStep;\
   const bool inPMLv = (threadIdx.x<Npmlz);\
   const bool inDisp = (threadIdx.x>=dispReg::vL && threadIdx.x<dispReg::vR);\
-  const int iz=get_iz(threadIdx.x); const int pml_iz=threadIdx.x, Kpml_iz=2*threadIdx.x;\
+  const int iz=izBeg-5+threadIdx.x/*get_iz(threadIdx.x)*/; const int pml_iz=threadIdx.x, Kpml_iz=2*threadIdx.x;\
+  if(iz<0 || iz>=Nv) return;\
+  const int eventype=EVENTYPE;\
   /*const int izP0=iz, izP1 = (iz+1)%Nv, izP2 = (iz+2)%Nv, izM1 = (iz-1+Nv)%Nv, izM2 = (iz-2+Nv)%Nv;*/\
-  const int izP0=iz, izP0m=iz, izP1m = Vrefl(iz+1,0), izP2m = Vrefl(iz+2,0), izM1m = Vrefl(iz-1,0), izM2m = Vrefl(iz-2,0);\
-  const int          izP0c=iz, izP1c = Vrefl(iz+1,1), izP2c = Vrefl(iz+2,1), izM1c = Vrefl(iz-1,1), izM2c = Vrefl(iz-2,1);\
+  const int izP0=threadIdx.x, izP0m=izP0, izP1m = Vrefl(iz+1,0)-iz+izP0, izP2m = Vrefl(iz+2,0)-iz+izP0, izM1m = Vrefl(iz-1,0)-iz+izP0, izM2m = Vrefl(iz-2,0)-iz+izP0;\
+  const int                   izP0c=izP0, izP1c = Vrefl(iz+1,1)-iz+izP0, izP2c = Vrefl(iz+2,1)-iz+izP0, izM1c = Vrefl(iz-1,1)-iz+izP0, izM2c = Vrefl(iz-2,1)-iz+izP0;\
   const int izdisp=iz-dispReg::vL;\
   const int Kpml_iy=get_pml_iy(iy)*NDT*2; int Kpml_ix=0;\
   int it=t0; ftype difx[100],dify[100],difz[100]; ftype zerov=0.;\
@@ -197,7 +226,7 @@ extern texture<char, cudaTextureType3D> index_tex;
   if(iy==ymC+NStripe(curDev)-1 && !isTopStripe) if(EVENTYPE==0) load_buffer<EVENTYPE>(RAG0, pars.p2pBufP[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);\
   if(iy==ymC                   && !isBotStripe) if(EVENTYPE==1) load_buffer<EVENTYPE>(RAG0, pars.p2pBufM[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);
 #define POSTEND(EVENTYPE)\
-  if(iy==ymC+NStripe(curDev)-1 && !isTopStripe) if(EVENTYPE==0) save_buffer<EVENTYPE>(RAG0, pars.p2pBufP[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);\
+  //if(iy==ymC+NStripe(curDev)-1 && !isTopStripe) if(EVENTYPE==0) save_buffer<EVENTYPE>(RAG0, pars.p2pBufP[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);\
   if(iy==ymC                   && !isBotStripe) if(EVENTYPE==1) save_buffer<EVENTYPE>(RAG0, pars.p2pBufM[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);
 
 #define PTR_DEC \
@@ -225,6 +254,26 @@ extern texture<char, cudaTextureType3D> index_tex;
   else             SpmlRAGpc  = &pars.ragsPMLsR[idevC][((ix+1-Ns+Npmlx/2)%(Npmlx/2))*dStepRagC   +iy-ymC];\
   DiamondRagDisp  * __restrict__ rdispcc   = &pars.ragsDisp[idevC][ (ix-dispReg::sL                   )*dStepRagC   +iy-ymC];\
   DiamondRagDisp  * __restrict__ rdisppc   = &pars.ragsDisp[idevC][((ix+1-dispReg::sL)%(dispReg::sR-dispReg::sL))*dStepRagC   +iy-ymC];\
+
+//#define CONVEX(xc,zc)  ( 2*iz+zc>=izBeg*2-xc   && 2*iz+zc<izEnd*2+xc   && xc<=2 || 2*iz+zc>=izBeg*2+xc-5 && 2*iz+zc<izEnd*2-xc+5 && xc>=3 )
+//#define CONCAVE(xc,zc) ( 2*iz+zc>=izBeg*2+xc-2 && 2*iz+zc<izEnd*2-xc+2 && xc<=2 || 2*iz+zc>=izBeg*2-xc+3 && 2*iz+zc<izEnd*2+xc-3 && xc>=3 )
+//#define isCONzT(xc,zc) CONVEX(xc,zc) && convex || CONCAVE(xc,zc) && concave
+//#define isCONzV(xc,zc) CONCAVE(xc,zc) && convex || CONVEX(xc,zc) && concave
+#define isCONzT(xc,zc) \
+2*iz+zc>=izBeg*2-xc     && 2*iz+zc<izEnd*2+xc     &&          zform==0 && eventype==0 || \
+2*iz+zc>=izBeg*2+xc-6   && 2*iz+zc<izEnd*2-xc+6   &&          zform==1 && eventype==0 || \
+2*iz+zc>=izBeg*2-xc-3   && 2*iz+zc<izEnd*2+xc+3   && xc<3  && zform==0 && eventype==1 || \
+2*iz+zc>=izBeg*2-xc+3   && 2*iz+zc<izEnd*2+xc-3   && xc>=3 && zform==0 && eventype==1 || \
+2*iz+zc>=izBeg*2+xc+3-6 && 2*iz+zc<izEnd*2-xc-3+6 && xc<3  && zform==1 && eventype==1 || \
+2*iz+zc>=izBeg*2+xc-3-6 && 2*iz+zc<izEnd*2-xc+3+6 && xc>=3 && zform==1 && eventype==1
+
+#define isCONzV(xc,zc) \
+2*iz+zc>=izBeg*2-xc     && 2*iz+zc<izEnd*2+xc     &&          zform==0 && eventype==1 || \
+2*iz+zc>=izBeg*2+xc-6   && 2*iz+zc<izEnd*2-xc+6   &&          zform==1 && eventype==1 || \
+2*iz+zc>=izBeg*2-xc-3   && 2*iz+zc<izEnd*2+xc+3   && xc<3  && zform==0 && eventype==0 || \
+2*iz+zc>=izBeg*2-xc+3   && 2*iz+zc<izEnd*2+xc-3   && xc>=3 && zform==0 && eventype==0 || \
+2*iz+zc>=izBeg*2+xc+3-6 && 2*iz+zc<izEnd*2-xc-3+6 && xc<3  && zform==1 && eventype==0 || \
+2*iz+zc>=izBeg*2+xc-3-6 && 2*iz+zc<izEnd*2-xc+3+6 && xc>=3 && zform==1 && eventype==0
 
 #define I01 1
 #define I02 2

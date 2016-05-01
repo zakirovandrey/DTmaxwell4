@@ -58,6 +58,7 @@ const int Na=NA;
 const int Nv=NV;
 
 const int Ntime=NTIME;
+const int NzMax=768;
 
 #if NDev==1
 #define Nstrp0 (NA)
@@ -583,6 +584,11 @@ inline void print_info(){
   printf("COFFS_DEFAULT +\n");
   #else
   printf("COFFS_DEFAULT -\n");
+  #endif
+  #ifdef COFFS_IN_DEVICE
+  printf("COFFS_IN_DEVICE +\n");
+  #else
+  printf("COFFS_IN_DEVICE -\n");
   #endif
   #ifdef USE_TEX_2D
   printf("USE_TEX_2D +\n");
