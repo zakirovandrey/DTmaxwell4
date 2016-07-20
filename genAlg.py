@@ -132,6 +132,7 @@ class data():
       if c=='y': Kpmlind = "(Kpml_iy%+d)%%KNpmly"%self.coord[i]
       if c=='x': Kpmlind = "Kpml_ix"
       Kpml1,Kpml2 = map(lambda n: ("Kpml%s%d[%s]"%(c,n,Kpmlind)), (1,2))
+      if self.typus=='V' and i==self.proj: Kpml1='1'; Kpml2='0'
       if pmltype[i]: print "    %s = %s*%s %s %s*%s;"%(pmlname, Kpml1, pmlname, sign, Kpml2, difk24 )
       elif i==0 and self.typus in "SV" and pml1d: print "    %s += %s %s "%(pmlname, sign, difk24),
       elif i==1 and self.typus in "SV" and pml1d: print "    %s %s ;"%(sign, difk24); splitnums=(0,2)
@@ -160,11 +161,11 @@ class data():
       cofftype_aniso.append( map(lambda xyzw: "*coffS.%s"%xyzw, ("wyz","yxy","zyw")[self.proj]) )
       cofftype_aniso.append( map(lambda xyzw: "*coffS.%s"%xyzw, ("wzy","zwy","yyx")[self.proj]) )
     dtdr_coffs = (cofftype[0],cofftype[1],cofftype[2]) if SqGrid else ("*dtdxd24%s"%cofftype[0],"*dtdyd24%s"%cofftype[1],"*dtdzd24%s"%cofftype[2])
-    if self.neigh[0][0].name: difx = "-%13s+%13s+%s*%13s-%s*%13s"%(self.neigh[0][2].name, self.neigh[0][3].name, acc_coff[0],self.neigh[0][0].name, acc_coff[0],self.neigh[0][1].name, )
-    if self.neigh[1][0].name: dify = "-%13s+%13s+%s*%13s-%s*%13s"%(self.neigh[1][2].name, self.neigh[1][3].name, acc_coff[0],self.neigh[1][0].name, acc_coff[0],self.neigh[1][1].name, )
+    if self.neigh[0][0].name: difx = "-(%13s) ONE+(%13s) ONE+%s*%13s-%s*%13s"%(self.neigh[0][2].name, self.neigh[0][3].name, acc_coff[0],self.neigh[0][0].name, acc_coff[0],self.neigh[0][1].name, )
+    if self.neigh[1][0].name: dify = "-(%13s) ONE+(%13s) ONE+%s*%13s-%s*%13s"%(self.neigh[1][2].name, self.neigh[1][3].name, acc_coff[0],self.neigh[1][0].name, acc_coff[0],self.neigh[1][1].name, )
     if self.neigh[1][0].name and data.Atype[0]=="I" and self.typus=="V":
       free_refl = map(lambda n: "+-"[self.coord[1]+(-n-1,n)[n%2]<0], range(order) )
-      dify = "-(%s%13s)+(%s%13s)+(%s%s*%13s)-(%s%s*%13s)"%(free_refl[2], self.neigh[1][2].name, free_refl[3], self.neigh[1][3].name, free_refl[0],acc_coff[0],self.neigh[1][0].name, free_refl[1],acc_coff[0],self.neigh[1][1].name, )
+      dify = "-(%s%13s) ONE+(%s%13s) ONE+(%s%s*%13s)-(%s%s*%13s)"%(free_refl[2], self.neigh[1][2].name, free_refl[3], self.neigh[1][3].name, free_refl[0],acc_coff[0],self.neigh[1][0].name, free_refl[1],acc_coff[0],self.neigh[1][1].name, )
     global uniqdifN;
     signx,signy,signz = "+++"
     if self.typus!="S": signx,signy,signz = map(lambda xyz: "+-"[((xyz-self.proj)%3+"VT".index(self.typus))%2] , (0,1,2) )
@@ -192,12 +193,12 @@ class data():
     if data.Atype=='S' or data.Atype[0:2]=='Xs' or data.Atype[0:2]=='Is': pmly=1
     difx, dify, difz = None, None, None
     acc_coff = {2:["1",], 4:["p27","1"]}[order]
-    if self.neigh[0][0].name: difx = "-%13s+%13s+%s*%13s-%s*%13s"%(self.neigh[0][2].name, self.neigh[0][3].name, acc_coff[0],self.neigh[0][0].name, acc_coff[0],self.neigh[0][1].name, )
-    if self.neigh[1][0].name: dify = "-%13s+%13s+%s*%13s-%s*%13s"%(self.neigh[1][2].name, self.neigh[1][3].name, acc_coff[0],self.neigh[1][0].name, acc_coff[0],self.neigh[1][1].name, )
-    if self.neigh[2][0].name: difz = "-%13s+%13s+%s*%13s-%s*%13s"%(self.neigh[2][2].name, self.neigh[2][3].name, acc_coff[0],self.neigh[2][0].name, acc_coff[0],self.neigh[2][1].name, )
+    if self.neigh[0][0].name: difx = "-(%13s) ONE+(%13s) ONE+%s*%13s-%s*%13s"%(self.neigh[0][2].name, self.neigh[0][3].name, acc_coff[0],self.neigh[0][0].name, acc_coff[0],self.neigh[0][1].name, )
+    if self.neigh[1][0].name: dify = "-(%13s) ONE+(%13s) ONE+%s*%13s-%s*%13s"%(self.neigh[1][2].name, self.neigh[1][3].name, acc_coff[0],self.neigh[1][0].name, acc_coff[0],self.neigh[1][1].name, )
+    if self.neigh[2][0].name: difz = "-(%13s) ONE+(%13s) ONE+%s*%13s-%s*%13s"%(self.neigh[2][2].name, self.neigh[2][3].name, acc_coff[0],self.neigh[2][0].name, acc_coff[0],self.neigh[2][1].name, )
     if self.neigh[1][0].name and data.Atype[0]=="I" and self.typus=="V":
       free_refl = map(lambda n: "+-"[self.coord[1]+(-n-1,n)[n%2]<0], range(order) )
-      dify = "-(%s%13s)+(%s%13s)+(%s%s*%13s)-(%s%s*%13s)"%(free_refl[2], self.neigh[1][2].name, free_refl[3], self.neigh[1][3].name, free_refl[0],acc_coff[0],self.neigh[1][0].name, free_refl[1],acc_coff[0],self.neigh[1][1].name, )
+      dify = "-(%s%13s) ONE+(%s%13s) ONE+(%s%s*%13s)-(%s%s*%13s)"%(free_refl[2], self.neigh[1][2].name, free_refl[3], self.neigh[1][3].name, free_refl[0],acc_coff[0],self.neigh[1][0].name, free_refl[1],acc_coff[0],self.neigh[1][1].name, )
     if self.typus=="S":
       difx = "%13s*0.5625+%13s*0.5625-0.0625*%13s-0.0625*%13s"%(self.neigh[0][0].name, self.neigh[0][1].name, self.neigh[0][2].name, self.neigh[0][3].name, )
       dify = "%13s*0.5625+%13s*0.5625-0.0625*%13s-0.0625*%13s"%(self.neigh[1][0].name, self.neigh[1][1].name, self.neigh[1][2].name, self.neigh[1][3].name, )
@@ -215,16 +216,16 @@ class data():
           valn = "%g+i%s"%(nearf.coord[xyz],'xyz'[xyz])
           crd = "SAV"[xyz];  srcsign='checktest'
           if nearf.coord[xyz]!=f.coord[xyz]:
-            print "  src%d%s = 0.0f; upd_inSF = inSF(%g+glob_ix*2*NDT,%g+iy*2*NDT,%g+iz*2); neigh_inSF = inSF(%g+glob_ix*2*NDT,%g+iy*2*NDT,%g+iz*2);"%(ni,'xyz'[xyz], f.coord[0],f.coord[1],f.coord[2],nearf.coord[0],nearf.coord[1],nearf.coord[2])
-            print "  if     (!upd_inSF &&  neigh_inSF) src%d%s =  SrcTFSF_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, tshift+it+%g);"%(ni,'xyz'[xyz], nearf.typus, "xyz"[nearf.proj], nearf.coord[0], nearf.coord[2], nearf.coord[1], time)
-            print "  else if( upd_inSF && !neigh_inSF) src%d%s = -SrcTFSF_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, tshift+it+%g);"%(ni,'xyz'[xyz], nearf.typus, "xyz"[nearf.proj], nearf.coord[0], nearf.coord[2], nearf.coord[1], time)
+            print "  src%d%s = 0.0f; upd_inSF = inSF(%g+glob_ix*2*NDT,%g+phys_iy*2*NDT,%g+iz*2); neigh_inSF = inSF(%g+glob_ix*2*NDT,%g+phys_iy*2*NDT,%g+iz*2);"%(ni,'xyz'[xyz], f.coord[0],f.coord[1],f.coord[2],nearf.coord[0],nearf.coord[1],nearf.coord[2])
+            print "  if     (!upd_inSF &&  neigh_inSF) src%d%s =  SrcTFSF_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+phys_iy*2*NDT, tshift+it+%g);"%(ni,'xyz'[xyz], nearf.typus, "xyz"[nearf.proj], nearf.coord[0], nearf.coord[2], nearf.coord[1], time)
+            print "  else if( upd_inSF && !neigh_inSF) src%d%s = -SrcTFSF_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+phys_iy*2*NDT, tshift+it+%g);"%(ni,'xyz'[xyz], nearf.typus, "xyz"[nearf.proj], nearf.coord[0], nearf.coord[2], nearf.coord[1], time)
           else: return
         for ni in 2,3,0,1: makeSigns(self,self.neigh[xyz][ni],ni)
         near_tfsf = map(lambda nachbar: "(%s%s)"%(nachbar.name,SrcFunc(self,nachbar)), self.neigh[xyz])
-        dif = "-%s+%s+%s*%s-%s*%s"%(near_tfsf[2], near_tfsf[3], acc_coff[0],near_tfsf[0], acc_coff[0],near_tfsf[1], )
+        dif = "-(%s) ONE + (%s) ONE +%s*%s-%s*%s"%(near_tfsf[2], near_tfsf[3], acc_coff[0],near_tfsf[0], acc_coff[0],near_tfsf[1], )
         if xyz==1 and self.neigh[1][0].name and data.Atype[0]=="I" and self.typus=="V":
           free_refl = map(lambda n: "+-"[self.coord[1]+(-n-1,n)[n%2]<0], range(order) )
-          dif = "-(%s%s)+(%s%s)+(%s%s*%s)-(%s%s*%s)"%(free_refl[2], near_tfsf[2], free_refl[3], near_tfsf[3], free_refl[0],acc_coff[0],near_tfsf[0], free_refl[1],acc_coff[0],near_tfsf[1], )
+          dif = "-(%s%s) ONE+(%s%s) ONE+(%s%s*%s)-(%s%s*%s)"%(free_refl[2], near_tfsf[2], free_refl[3], near_tfsf[3], free_refl[0],acc_coff[0],near_tfsf[0], free_refl[1],acc_coff[0],near_tfsf[1], )
         if self.typus=="S":
           dif = "%13s*0.5625+%13s*0.5625-0.0625*%13s-0.0625*%13s"%(near_tfsf[0], near_tfsf[1], near_tfsf[2], near_tfsf[3])
           dtdr_coffs = map(lambda np: ("*0","")[self.proj==np],(0,1,2))
@@ -245,12 +246,16 @@ class data():
     signx,signy,signz = "+++"
     if self.typus!="S": signx,signy,signz = map(lambda xyz: "+-"[((xyz-self.proj)%3+"VT".index(self.typus))%2] , (0,1,2) )
     pmlz = data.inPMLv
+    #summands = list(itertools.compress( map( lambda (sign,xyz): " %s %s"%(sign, "dif%s[%d]"%(xyz,uniqdifN)), zip((signx,signy,signz),'xyz') ), (difx,dify,difz)))
+    #if data.Disp and self.typus=="V" and not 0*data.PMLS: 
+    #  if data.PMLS: print "    if(!isOutS(ix*2*NDT+(%g))) "%(self.coord[0])
+    #  self.updateDisp("(%s)/coffV;"%(''.join(summands)))
     if data.PMLS: print "  if(!isOutS(ix*2*NDT+(%g))) if(inPMLsync(ix*2*NDT+(%g))) {"%(self.coord[0],self.coord[0])
     if data.PMLS: print "    Kpml_ix=get_pml_ix(ix*2*NDT+(%d));"%floor(self.coord[0])
-    summands = list(itertools.compress( map( lambda (sign,xyz): " %s %s"%(sign, "dif%s[%d]"%(xyz,uniqdifN)), zip((signx,signy,signz),'xyz') ), (difx,dify,difz)))
-    if data.Disp and self.typus=="V" and not data.PMLS: self.updateDisp("(%s)/coffV;"%(''.join(summands)))
     self.Gyration(hind)
     for pmlx in ((0,),(1,0))[data.PMLS]:
+      summands = list(itertools.compress( map( lambda (sign,xyz): " %s %s"%(sign, "dif%s[%d]"%(xyz,uniqdifN)), zip((signx,signy,signz),'xyz') ), (difx,dify,difz)))
+      if data.Disp and self.typus=="V" and pmlx==0: self.updateDisp("(%s)/coffV;"%(''.join(summands)))
       for pmlz in ((0,),(1,0))[bool(difz) and self.typus!="S"]:
         if pmlz==1: print "  if(inPMLv){"
         pml_ever = (difx and pmlx) or (dify and pmly) or (difz and pmlz)
@@ -268,11 +273,12 @@ class data():
         if pmlz==1 and difz and self.typus!='S': print "  } else {"
       if difz and self.typus!='S': print "  }"
       if data.PMLS and pmlx==1: print "  } else {"
-    if data.Disp and self.typus=="V" and not data.PMLS: print "  }"
+      if data.Disp and self.typus=="V" and pmlx==0: print "  }"
     if data.PMLS: print "  }"
+    #if data.Disp and self.typus=="V" and not 0*data.PMLS: print "  }"
 
     if data.Atype[0]=='I' and not isOutA(self.coord[1], data.Atype) and isOutA(self.coord[1]-2, data.Atype):
-      print "  %s+= SrcSurf_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, pars.iStep*Ntime+it+%g);"%(self.name, self.typus,'xyz'[self.proj], self.coord[0], self.coord[2], self.coord[1], time)
+      print "  %s+= SrcSurf_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+phys_iy*2*NDT, pars.iStep*Ntime+it+%g);"%(self.name, self.typus,'xyz'[self.proj], self.coord[0], self.coord[2], self.coord[1], time)
       #if self.typus!="S": print "  #ifndef DROP_ONLY_V"
       #if self.typus=="S": fval = "%s*0.5625+%s*0.5625-%s*0.0625-%s*0.0625"%tuple(map(lambda n: n.name, self.neigh[self.proj]))
       #else: fval = self.name
@@ -307,6 +313,9 @@ class data():
   def updateDisp(self, rot):
     Em,Ep,Jm,Jp = map(lambda EJ: self.globname.replace("RAG","rdisp").replace("Vi",EJ).replace("iz","izdisp"), ("Em","Ep","Jm","Jp"))
     Ep=self.name;
+    if data.PMLS: Em = Em.split(":")[1][2:-2]
+    if data.PMLS: Jm = Jm.split(":")[1][2:-2]
+    if data.PMLS: Jp = Jp.split(":")[1][2:-2]
     print "  if(ISDISP(%d,%d,2*iz%+d)){ "%(self.coord[0],self.coord[1],self.coord[2])
     print "    rot = %s;"%rot
     print "    countDisp(%s,\n     %s,\n     %s,\n     %s, rot,TEXCOFFDISP((%d), (%d), 2*iz+%d), %d);"%(Ep,Em,Jp,Jm,self.coord[0],self.coord[1],self.coord[2], self.proj)

@@ -58,16 +58,25 @@ struct AsyncMPIexch{
   if(isPMLs) PMLS##func<<<a,b,c,d>>>args; else func<<<a,b,c,d>>>args; TIMER.record(); }
 #else
 #define IFPMLS(func,a,b,c,d,EVENT,args) {\
-  printf(#func" PMLS=%d idev=%d w0=%d ix=%d iym=%d Nblocks=%d\n", isPMLs, idev,w0,ix, iym, a);\
+  /*printf(#func" PMLS=%d idev=%d w0=%d ix=%d iym=%d Nblocks=%d\n", isPMLs, idev,w0,ix, iym, a);*/\
   for(int iz=0   ; iz<Nv; iz+=2*Nw+6) { if(isPMLs) PMLS##func<0><<<a,b,c,d>>>args; else func<0><<<a,b,c,d>>>args; } \
   for(int iz=Nw+3; iz<Nv; iz+=2*Nw+6) { if(isPMLs) PMLS##func<1><<<a,b,c,d>>>args; else func<1><<<a,b,c,d>>>args; } }
+#endif
+#ifndef SPLIT_ZFORM
+#define IFPMLS(func,a,b,c,d,TIMER,args) {\
+  /*printf(#func" PMLS=%d idev=%d w0=%d ix=%d iym=%d Nblocks=%d Nthreads=%d\n", isPMLs, idev,w0,ix, iym, a,b);*/\
+  int iz=0; if(isPMLs) PMLS##func<0><<<a,b,c,d>>>args; else func<0><<<a,b,c,d>>>args; }
 #endif
 //#define IFPMLS(func,a,b,c,d,args) { if(!isPMLs) func<<<a,b,c,d>>>args; }
 //#define IFPMLS(func,a,b,c,d,args) func<<<a,b,c,d>>>args;
 template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double disbal[NDev], bool isPMLs, bool isTFSF) {
   if(Nt<=t0 || Nt<=0) return;
   DEBUG_PRINT(("Dtorre%d isPMLs=%d isTFSF=%d ix=%d, t0=%d Nt=%d wleft=%d\n", even, isPMLs, isTFSF, ix,t0,Nt, parsHost.wleft));
-  const int Nw=min(Nv/2,Nzw-9);/*Nv/2*/; const int Nth=Nw+9;
+  #ifdef SPLIT_ZFORM
+  const int Nw=min(Nv/2,Nzw-10);/*Nv/2*/; const int Nth=Nw+10;
+  #else
+  const int Nw=Nv; const int Nth=Nv; 
+  #endif
   CHECK_ERROR( cudaSetDevice(0) );
   #ifdef TIMERS_ON
   cuTimer ttDm[NDev], ttDo[NDev];
@@ -331,8 +340,8 @@ int calcStep(){
   for(int ix=Ns-Ntime; ix>0; ix--) {
 //    printf("ix=%d\n",ix);
     const int block_spacing = TEST_RATE;
-    torreD0<<<(Na-2)/block_spacing,Nv>>>(ix, 1, Ntime, 0); cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
-    torreD1<<<(Na-2)/block_spacing,Nv>>>(ix, 1, Ntime, 0); cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
+    torreD0<0><<<(Na-2)/block_spacing,Nv>>>(ix, 1, 0,Nv,Ntime, 0); cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
+    torreD1<0><<<(Na-2)/block_spacing,Nv>>>(ix, 1, 0,Nv,Ntime, 0); cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
     torreNum++;
   }
   #else
@@ -458,6 +467,10 @@ int calcStep(){
   #if not defined MPI_ON && defined DROP_DATA
   cuTimer tdrop; tdrop.init(); parsHost.drop.drop(0,Np,parsHost.data,parsHost.iStep); dropTime+= tdrop.gettime();
   #endif
+
+  for(vector<Sensor>::iterator sit=parsHost.sensors->begin(); sit!=parsHost.sensors->end(); ++sit) {
+    sit->write();
+  }
 
   double calcTime=t0.gettime();
   unsigned long int yee_cells = 0;

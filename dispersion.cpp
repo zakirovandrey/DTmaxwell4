@@ -82,7 +82,7 @@ struct DispStruct {
   }
 };
 
-__device__ inline void countDisp (ftype& Ep, ftype& Em, ftype* Jp, ftype* Jm, ftype& rotdt, DispStruct& CfArr, int xc, int md=Md) {
+__device__ inline static void countDisp (ftype& Ep, ftype& Em, ftype* Jp, ftype* Jm, ftype& rotdt, DispStruct& CfArr, int xc, int md=Md) {
   ftype Etmp = Ep;
   ftype sum=0.;
   for(int i=0; i<md; i++) sum+= CfArr.kEJ[xc][i][0]*Jp[i] + CfArr.kEJ[xc][i][1]*Jm[i];  // в статье слагаемые также!!!

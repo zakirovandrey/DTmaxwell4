@@ -3,6 +3,11 @@
 const ftype p9d8 = 9./8.;
 const ftype m1d24=-1./24.;
 const ftype p27= 27.;
+//const ftype p27= -1;
+#define ONE  
+//const ftype dtdxd24 = dt/dx;
+//const ftype dtdyd24 = dt/dy;
+//const ftype dtdzd24 = dt/dz;
 const ftype dtdxd24 = dt/dx/24.;
 const ftype dtdyd24 = dt/dy/24.;
 const ftype dtdzd24 = dt/dz/24.;
@@ -12,6 +17,7 @@ const ftype dtdrd24 = dt/dr/24.;
 const ftype dtdrd24 = 1.0;
 #endif
 const ftype drdt24 = dr/dt*24.;
+
 
 extern ftype* __restrict__ hostKpmlx1; extern ftype* __restrict__ hostKpmlx2;
 extern ftype* __restrict__ hostKpmly1; extern ftype* __restrict__ hostKpmly2;
@@ -112,14 +118,14 @@ struct __align__(16) CoffStruct{
 };
 struct DispStruct;
 
-enum {IndAir=0, IndBIG=1, IndGold=2, IndGGG=3, IndOut, IndSh1, IndSh2, IndSh3, IndSh4, IndSh5};
-const int Nmats=10;
+enum {IndAir=0, IndBIG=1, IndGold=2, IndGGG=3, IndOut, IndSh1, IndSh2, IndSh3, IndSh4, IndSh5, IndVac, IndAg, IndOrg, IndITO, IndGlass};
+const int Nmats=15;
 extern __device__ __constant__ CoffStruct coffs[Nmats];
 extern __device__ __constant__ DispStruct DispCoffs[Nmats];
 extern cudaArray* index_texArray;
 //#define TEXCOFFE(x,y,z) coffs[tex3D(index_tex, z,(y+Na*NDT)%(Na*NDT),x)].deps
 //#define TEXCOFFE(x,y,z) dtdrd24
-__device__ inline int get_mat_indev(int ix, int iy, int iz) {
+__device__ inline static int get_mat_indev(int ix, int iy, int iz) {
    float x=ix*0.5*dx, y=iy*0.5*dy, z=iz*0.5*dz;
    float Xc=0.5*Np*NDT*dx, Yc=0.5*Na*NasyncNodes*NDT*dy, Zc=0.5*Nv*dz;
    const ftype R1=1.0;
@@ -127,12 +133,12 @@ __device__ inline int get_mat_indev(int ix, int iy, int iz) {
    const ftype R3=3.0;
    const ftype R4=3.9;
    const ftype R5=4.0;
-   if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= R1*R1 ) return IndSh1;
-   if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= R2*R2 ) return IndSh2;
-   if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= R3*R3 ) return IndSh3;
-   if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= R4*R4 ) return IndSh4;
-   if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= R5*R5 ) return IndSh5;
-   else return IndOut;
+   //if(z<0.150/pow((x-Xc)/2,8)+4) return IndAg;
+   if(x<(Npmlx*NDT+100)*dx/2 || x>Np*NDT*dx-(Npmlx*NDT+100)*dx/2 || y<(Npmly*NDT+100)*dy/2 || y>Na*NasyncNodes*NDT*dy-(Npmly*NDT+100)*dy/2) return IndOrg;
+   z-=0.150f; if(z<0) return IndAg;
+   z-=0.180f; if(z<0) return IndOrg;
+   z-=0.100f; if(z<0) return IndITO;
+   return IndGlass;
 }
 #define TEXCOFFS(nind,xt,yt,z,I,h)  ;
 #define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = 1;
@@ -165,8 +171,8 @@ extern texture<char, cudaTextureType3D> index_tex;
 #define TEXCOFFVx(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z); ArrcoffV[nind] = coffs[index].depsXX; AnisoE[nind] = coffs[index];
 #define TEXCOFFVy(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z); ArrcoffV[nind] = coffs[index].depsYY; AnisoE[nind] = coffs[index];
 #define TEXCOFFVz(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z); ArrcoffV[nind] = coffs[index].depsZZ; AnisoE[nind] = coffs[index];
-#define ISDISP(xt,yt,z) 0
-#define TEXCOFFDISP(xt,yt,z) DispCoffs[0]
+#define ISDISP(xt,yt,z)               coffs[get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z)].isDisp
+#define TEXCOFFDISP(xt,yt,z)      DispCoffs[get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z)]
 #endif//COFFS_IN_DEVICE
 
 #ifdef BLOCH_BND_Y
@@ -180,17 +186,25 @@ extern texture<char, cudaTextureType3D> index_tex;
 #define BLOCK_SPACING 1
 #endif
 
+#ifdef SPLIT_ZFORM
+#define ZFROMTHREAD izBeg-5+threadIdx.x
+#define IZ_0_FROMTHREAD threadIdx.x
+#else 
+#define ZFROMTHREAD get_iz(threadIdx.x)
+#define IZ_0_FROMTHREAD iz
+#endif
+
 #define REG_DEC(EVENTYPE) \
   const int iy=(y0+BLOCK_SPACING*blockIdx.x)%Na;\
   const int tshift=tshift_coeff*pars.iStep;\
-  const bool inPMLv = (threadIdx.x<Npmlz);\
-  const bool inDisp = (threadIdx.x>=dispReg::vL && threadIdx.x<dispReg::vR);\
-  const int iz=izBeg-5+threadIdx.x/*get_iz(threadIdx.x)*/; const int pml_iz=threadIdx.x, Kpml_iz=2*threadIdx.x;\
+  const int iz=ZFROMTHREAD/*get_iz(threadIdx.x)*/; const int pml_iz=(iz>=Nz-Npmlz/2)?(iz-Nz+Npmlz):iz, Kpml_iz=2*pml_iz;\
   if(iz<0 || iz>=Nv) return;\
+  const bool inPMLv = (iz<Npmlz/2 || iz>=Nz-Npmlz/2);\
+  const bool inDisp = (iz>=dispReg::vL && iz<dispReg::vR);\
   const int eventype=EVENTYPE;\
   /*const int izP0=iz, izP1 = (iz+1)%Nv, izP2 = (iz+2)%Nv, izM1 = (iz-1+Nv)%Nv, izM2 = (iz-2+Nv)%Nv;*/\
-  const int izP0=threadIdx.x, izP0m=izP0, izP1m = Vrefl(iz+1,0)-iz+izP0, izP2m = Vrefl(iz+2,0)-iz+izP0, izM1m = Vrefl(iz-1,0)-iz+izP0, izM2m = Vrefl(iz-2,0)-iz+izP0;\
-  const int                   izP0c=izP0, izP1c = Vrefl(iz+1,1)-iz+izP0, izP2c = Vrefl(iz+2,1)-iz+izP0, izM1c = Vrefl(iz-1,1)-iz+izP0, izM2c = Vrefl(iz-2,1)-iz+izP0;\
+  const int izP0=IZ_0_FROMTHREAD, izP0m=izP0, izP1m = Vrefl(iz+1,0)-iz+izP0, izP2m = Vrefl(iz+2,0)-iz+izP0, izM1m = Vrefl(iz-1,0)-iz+izP0, izM2m = Vrefl(iz-2,0)-iz+izP0;\
+  const int                       izP0c=izP0, izP1c = Vrefl(iz+1,1)-iz+izP0, izP2c = Vrefl(iz+2,1)-iz+izP0, izM1c = Vrefl(iz-1,1)-iz+izP0, izM2c = Vrefl(iz-2,1)-iz+izP0;\
   const int izdisp=iz-dispReg::vL;\
   const int Kpml_iy=get_pml_iy(iy)*NDT*2; int Kpml_ix=0;\
   int it=t0; ftype difx[100],dify[100],difz[100]; ftype zerov=0.;\
@@ -214,6 +228,7 @@ extern texture<char, cudaTextureType3D> index_tex;
   const int idevM=get_idev(iy-1,ymM); \
   const int idevP=get_idev(iy+1,ymP); \
   int y_tmp=0; const int curDev=get_idev(y0, y_tmp); \
+  const int phys_iy = (iy+pars.subnode*Na-curDev-NDev*pars.subnode);\
   const int dStepRagC=NStripe(idevC);\
   const int dStepRagM=NStripe(idevM);\
   const int dStepRagP=NStripe(idevP);\
@@ -253,12 +268,14 @@ extern texture<char, cudaTextureType3D> index_tex;
   if(ix+1<Npmlx/2) SpmlRAGpc  = &pars.ragsPMLsL[idevC][ (ix+1           )*dStepRagC   +iy-ymC];\
   else             SpmlRAGpc  = &pars.ragsPMLsR[idevC][((ix+1-Ns+Npmlx/2)%(Npmlx/2))*dStepRagC   +iy-ymC];\
   DiamondRagDisp  * __restrict__ rdispcc   = &pars.ragsDisp[idevC][ (ix-dispReg::sL                   )*dStepRagC   +iy-ymC];\
-  DiamondRagDisp  * __restrict__ rdisppc   = &pars.ragsDisp[idevC][((ix+1-dispReg::sL)%(dispReg::sR-dispReg::sL))*dStepRagC   +iy-ymC];\
+  DiamondRagDisp  * __restrict__ rdisppc   = &pars.ragsDisp[idevC][((ix+1-dispReg::sL)%(dispReg::sRdev-dispReg::sL))*dStepRagC   +iy-ymC];\
 
 //#define CONVEX(xc,zc)  ( 2*iz+zc>=izBeg*2-xc   && 2*iz+zc<izEnd*2+xc   && xc<=2 || 2*iz+zc>=izBeg*2+xc-5 && 2*iz+zc<izEnd*2-xc+5 && xc>=3 )
 //#define CONCAVE(xc,zc) ( 2*iz+zc>=izBeg*2+xc-2 && 2*iz+zc<izEnd*2-xc+2 && xc<=2 || 2*iz+zc>=izBeg*2-xc+3 && 2*iz+zc<izEnd*2+xc-3 && xc>=3 )
 //#define isCONzT(xc,zc) CONVEX(xc,zc) && convex || CONCAVE(xc,zc) && concave
 //#define isCONzV(xc,zc) CONCAVE(xc,zc) && convex || CONVEX(xc,zc) && concave
+
+#ifdef SPLIT_ZFORM
 #define isCONzT(xc,zc) \
 2*iz+zc>=izBeg*2-xc     && 2*iz+zc<izEnd*2+xc     &&          zform==0 && eventype==0 || \
 2*iz+zc>=izBeg*2+xc-6   && 2*iz+zc<izEnd*2-xc+6   &&          zform==1 && eventype==0 || \
@@ -267,6 +284,8 @@ extern texture<char, cudaTextureType3D> index_tex;
 2*iz+zc>=izBeg*2+xc+3-6 && 2*iz+zc<izEnd*2-xc-3+6 && xc<3  && zform==1 && eventype==1 || \
 2*iz+zc>=izBeg*2+xc-3-6 && 2*iz+zc<izEnd*2-xc+3+6 && xc>=3 && zform==1 && eventype==1
 
+#define isCONzS(xc,zc) isCONzT(xc,zc)
+
 #define isCONzV(xc,zc) \
 2*iz+zc>=izBeg*2-xc     && 2*iz+zc<izEnd*2+xc     &&          zform==0 && eventype==1 || \
 2*iz+zc>=izBeg*2+xc-6   && 2*iz+zc<izEnd*2-xc+6   &&          zform==1 && eventype==1 || \
@@ -274,6 +293,11 @@ extern texture<char, cudaTextureType3D> index_tex;
 2*iz+zc>=izBeg*2-xc+3   && 2*iz+zc<izEnd*2+xc-3   && xc>=3 && zform==0 && eventype==0 || \
 2*iz+zc>=izBeg*2+xc+3-6 && 2*iz+zc<izEnd*2-xc-3+6 && xc<3  && zform==1 && eventype==0 || \
 2*iz+zc>=izBeg*2+xc-3-6 && 2*iz+zc<izEnd*2-xc+3+6 && xc>=3 && zform==1 && eventype==0
+#else //if not def SPLIT_ZFORM
+#define isCONzT(xc,zc) 1
+#define isCONzS(xc,zc) 1
+#define isCONzV(xc,zc) 1
+#endif //SPLIT_ZFORM
 
 #define I01 1
 #define I02 2

@@ -13,15 +13,15 @@ typedef float ftype;
 
 //#define ANISO_TR 2
 
-#define NDev 1
+#define NDev 2
 #define GPUDIRECT_RDMA
 
-#define DROP_DATA
+//#define DROP_DATA
 //#define USE_AIVLIB_MODEL
 //#define MPI_ON
 //#define MPI_TEST
 //#define TEST_RATE 1
-#define NOPMLS
+//#define NOPMLS
 #define USE_WINDOW
 #define COFFS_DEFAULT
 #define COFFS_IN_DEVICE
@@ -29,6 +29,7 @@ typedef float ftype;
 //#define SWAP_DATA
 //#define CLICK_BOOM
 #define SHARED_SIZE 5
+//#define SPLIT_ZFORM
 
 #ifndef NS
 #define NS 25
@@ -59,11 +60,11 @@ const int NyBloch=1;//200;
 
 const int Nzw=128;
 
-const int Npmlx=2*1;//2*24;
-const int Npmly=2*0;//24;
-const int Npmlz=0*2*16;//128;
+const int Npmlx=2*5;//2*1;//2*24;
+const int Npmly=2*5;//2*0;//24;
+const int Npmlz=2*16;//128;
 
-const ftype ds=0.005, da=0.005, dv=0.005, dt=0.0024;
+const ftype ds=0.005, da=0.005, dv=0.005, dt=0.002;
 
 extern struct TFSFsrc{
   ftype tStop;
@@ -78,7 +79,9 @@ extern struct TFSFsrc{
   //-------------------------------------------//
   ftype cSrc;
 
-  void set(const double, const double, const double);
+  ftype t0,tw,T;
+
+  void set(const double, const double);
   void check();
 } shotpoint;
 

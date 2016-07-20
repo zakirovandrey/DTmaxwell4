@@ -40,7 +40,7 @@ struct SeismoDrops {
     for(int ifld=0; ifld<6; ifld++) file[ifld] = new MPI_File; 
     MPI_Barrier(MPI_COMM_WORLD);
     #endif
-    FldDrop[0]=1; FldDrop[1]=0; FldDrop[2]=0;
+    FldDrop[0]=0; FldDrop[1]=0; FldDrop[2]=1;
     FldDrop[3]=0; FldDrop[4]=0; FldDrop[5]=0;
   }
   void open(const int it){

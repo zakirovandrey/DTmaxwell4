@@ -23,6 +23,7 @@ typedef double2 ftype2;
 typedef double3 ftype3;
 typedef double4 ftype4;
 template<typename T1,typename T2> __host__ __device__ ftype2 make_ftype2(const T1& f1, const T2& f2) { return make_double2(f1,f2); }
+template<typename T1,typename T2,typename T3> __host__ __device__ ftype3 make_ftype3(const T1& f1, const T2& f2, const T3& f3) { return make_double3(f1,f2,f3); }
 #else//use float
 typedef float ftype;
 #define MPI_FTYPE MPI_FLOAT
@@ -31,6 +32,7 @@ typedef float2 ftype2;
 typedef float3 ftype3;
 typedef float4 ftype4;
 template<typename T1,typename T2> __host__ __device__ ftype2 make_ftype2(const T1& f1, const T2& f2) { return make_float2(f1,f2); }
+template<typename T1,typename T2,typename T3> __host__ __device__ ftype3 make_ftype3(const T1& f1, const T2& f2, const T3& f3) { return make_float3(f1,f2,f3); }
 #endif
 
 #include "py_consts.h"
@@ -58,7 +60,11 @@ const int Na=NA;
 const int Nv=NV;
 
 const int Ntime=NTIME;
-const int NzMax=768;
+#ifdef USE_DOUBLE
+const int NzMax=(NV<384)?NV:384;
+#else
+const int NzMax=(NV<768)?NV:768;
+#endif
 
 #if NDev==1
 #define Nstrp0 (NA)
@@ -366,13 +372,14 @@ const ftype tfsfVm=-10, tfsfVp=Nv*dz+10; */
 //const int Xdisp1 = Ns;//tfsfSp/dx/NDT+2;//(xGold+0.5*thinGold)/dx/NDT+2;
 namespace dispReg{
   const int sL=0;
-  const int sR=0;//Ns;
+  const int sRdev=Ns;//0;
+  const int sR=Np;//0;
   const int vL=0;
-  const int vR=0;//Nv;
+  const int vR=Nv;//0;
 };
 const int dispNz=dispReg::vR-dispReg::vL;
 
-#define MD 2
+#define MD 1
 struct TwoDomJ {
     ftype fld[3][dispNz][MD];
   //ftype fldPML[3][Npmlz][MD];
@@ -473,6 +480,7 @@ extern struct GeoParamsHost: public GeoParams {
 //    CHECK_ERROR(cudaFreeArray(eps_texArray));
   }
   void checkSizes() { }
+  void sensors_set_rag();
 } parsHost;
 extern __constant__ GeoParams pars;
 

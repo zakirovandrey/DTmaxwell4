@@ -1,4 +1,5 @@
 #include "cuda_math.h"
+#include "cuda_math_double.h"
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -218,27 +219,30 @@ static void motion_func(int x, int y) { im3DHost.motion_func(x, y); }
 
 double PMLgamma_func(int i, int N, ftype dstep){ //return 0; 
   if(i>=N-3) return 0;
+  if(i<0) i=0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(1000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(10000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
 }
 double PMLgamma_funcY(int i, int N, ftype dstep){ //return 0;
   if(i>=N-3) return 0;
+  if(i<0) i=0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(1000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(10000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
 }
 double PMLgamma_funcZ(int i, int N, ftype dstep){ //return 0; 
   if(i>=N-3) return 0;
+  if(i<0) i=0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(1000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(10000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
@@ -250,11 +254,12 @@ void setPMLcoeffs(ftype* k1x, ftype* k2x, ftype* k1y, ftype* k2y, ftype* k1z, ft
   }
   for(int i=0; i<KNpmly; i++){
     //k2y[i] = 1.0/(1.0+0.5*dt*PMLgamma_funcY(KNpmly-i, KNpmly, dy));
-    k2y[i] = 1.0/(1.0+0.5*dt*PMLgamma_func(KNpmly/2-abs(i-KNpmly/2), KNpmly/2, dy));
+    k2y[i] = 1.0/(1.0+0.5*dt*PMLgamma_func((i<KNpmly/2)?i:(KNpmly-i-3), KNpmly/2, dy));
     k1y[i] = 2.0*k2y[i]-1;
   }
   for(int i=0; i<KNpmlz; i++){
-    k2z[i] = 1.0/(1.0+0.5*dt*PMLgamma_funcZ(KNpmlz/2-abs(i-KNpmlz/2), KNpmlz/2, dz));
+    k2z[i] = 1.0/(1.0+0.5*dt*PMLgamma_funcZ((i<KNpmlz/2)?i:(KNpmlz-i-1), KNpmlz/2, dz));
+    if(i<KNpmlz/2) k2z[i] = 1.0;
     k1z[i] = 2.0*k2z[i]-1;
   }
 }
@@ -347,7 +352,7 @@ void GeoParamsHost::set(){
   size_xzPMLs = 0;
   #endif
   size_t szPMLs      = Na*size_xzPMLs;
-  size_t size_xzDisp =(dispReg::sR-dispReg::sL)*sizeof(DiamondRagDisp);
+  size_t size_xzDisp =(dispReg::sRdev-dispReg::sL)*sizeof(DiamondRagDisp);
   size_t szDisp =Na*size_xzDisp;
   if(node==0) {
   printf("GPU Cell's Array size     : %7.2fM = %7.2fM(Main)+%7.2fM(Buffers)+%7.2fM(Model)+%7.2fM(Disp)+%7.2fM(PMLs)+%7.2fM(PMLa)\n", 
@@ -479,6 +484,19 @@ void GeoParamsHost::set(){
   //if(NyBloch!=1 && Ntime!=1) { printf("Error: Ntime must be =1 for NyBloch!=1\n"); exit(-1);}
 }
 
+void GeoParamsHost::sensors_set_rag(){
+  int xL=0; for(int inode=0; inode<node; inode++) xL+= mapNodeSize[inode]; xL-= Ns*node;
+  int xR = xL+mapNodeSize[node];
+  for(int x=0;x<Np;x++) {
+    if(x>=xL && x<xR) { 
+      for(int y=0;y<Na;y++) {
+         for(vector<Sensor>::iterator sit=sensors->begin(); sit!=sensors->end(); ++sit) {
+           sit->set_rag(x,y);
+         }
+      }
+    }
+  }
+}
 void init_index() {
   //-------Set PML coeffs----------------------------//
   hostKpmlx1 = new ftype[KNpmlx]; hostKpmlx2 = new ftype[KNpmlx];
@@ -501,6 +519,32 @@ void init_index() {
   parsHost.sensors->push_back(Sensor("Ez",(X0-Rreson)/dx-1,Y0/dy,Z0/dz));
   parsHost.sensors->push_back(Sensor("Ez",X0/dx,(Y0+Rreson)/dy+1,Z0/dz));
   parsHost.sensors->push_back(Sensor("Ez",X0/dx,(Y0-Rreson)/dy-1,Z0/dz));*/
+  ftype Xdip=(shotpoint.BoxMs+shotpoint.BoxPs)*0.5;
+  ftype Ydip=(shotpoint.BoxMa+shotpoint.BoxPa)*0.5;
+  ftype Zdip=(shotpoint.BoxMv+shotpoint.BoxPv)*0.5;
+  int X0=int(round(Xdip/dx));
+  int Y0=int(round(Ydip/dy));
+  int Z0=int(round(0.150/dz));
+  for(double xsen=0.0; xsen<Np*NDT*dx/2; xsen+=1.0) {
+    int xcrd = X0+int(round(xsen/dx));
+    parsHost.sensors->push_back(Sensor("Ex",xcrd,Y0,Z0));
+    parsHost.sensors->push_back(Sensor("Ey",xcrd,Y0,Z0));
+    parsHost.sensors->push_back(Sensor("Ez",xcrd,Y0,Z0));
+    parsHost.sensors->push_back(Sensor("Hx",xcrd,Y0,Z0));
+    parsHost.sensors->push_back(Sensor("Hy",xcrd,Y0,Z0));
+    parsHost.sensors->push_back(Sensor("Hz",xcrd,Y0,Z0));
+  }
+  for(double ysen=1.0; ysen<Na*NDT*dy/2; ysen+=1.0) {
+    int ycrd = Y0+int(round(ysen/dy));
+    parsHost.sensors->push_back(Sensor("Ex",X0,ycrd,Z0));
+    parsHost.sensors->push_back(Sensor("Ey",X0,ycrd,Z0));
+    parsHost.sensors->push_back(Sensor("Ez",X0,ycrd,Z0));
+    parsHost.sensors->push_back(Sensor("Hx",X0,ycrd,Z0));
+    parsHost.sensors->push_back(Sensor("Hy",X0,ycrd,Z0));
+    parsHost.sensors->push_back(Sensor("Hz",X0,ycrd,Z0));
+  }
+
+  parsHost.sensors_set_rag();
 
   cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<char>();
   #ifdef USE_TEX_2D
@@ -561,6 +605,11 @@ void init_material(char* &index_arr) {
   coffsHost[IndBIG  ].set_eps(n2*n2, 0, gyr.x,gyr.y,gyr.z); DispCoffsHost[IndBIG  ].setNondisp();
   coffsHost[IndGGG  ].set_eps(n3*n3, 0); DispCoffsHost[IndGGG  ].setNondisp();
   coffsHost[IndOut  ].set_eps(100*100, 0); DispCoffsHost[IndOut  ].setNondisp();
+  coffsHost[IndVac  ].set_eps(1*1, 0); DispCoffsHost[IndVac  ].setNondisp();
+  coffsHost[IndAg   ].set_eps(n1*n1, 1);
+  coffsHost[IndOrg  ].set_eps(1.75*1.75, 0); DispCoffsHost[IndOrg  ].setNondisp();
+  coffsHost[IndITO  ].set_eps(1.8*1.8  , 0); DispCoffsHost[IndITO  ].setNondisp();
+  coffsHost[IndGlass].set_eps(1.5*1.5  , 0); DispCoffsHost[IndGlass].setNondisp();
   coffsHost[IndSh1  ].set_eps(1*1, 0); DispCoffsHost[IndSh1  ].setNondisp();
   coffsHost[IndSh2  ].set_eps(2*2, 0); DispCoffsHost[IndSh2  ].setNondisp();
   coffsHost[IndSh3  ].set_eps(3*3, 0); DispCoffsHost[IndSh3  ].setNondisp();
@@ -573,6 +622,11 @@ void init_material(char* &index_arr) {
   ld2.set(1.0, 0.5*2*M_PI, 30*2*M_PI, 340*M_PI);
   vector<LorenzDisp> LDvec; LDvec.push_back(ld1); LDvec.push_back(ld2);
   DispCoffsHost[IndGold ].set(1, LDvec, LDvec.size(), 0);
+
+  LorenzDisp AgP;
+  AgP.setDrude(1.0, 136.66/3.0/*M_PI*/, 2.69e13/2/3e14, 0);
+  vector<LorenzDisp> Agvec; Agvec.push_back(AgP);
+  DispCoffsHost[IndAg ].set(1, Agvec, Agvec.size(), 0);
 
   for(int idev=0; idev<NDev; idev++) {
     CHECK_ERROR( cudaSetDevice(idev) );
@@ -595,6 +649,8 @@ void init_material(char* &index_arr) {
     if( (x-Xc)*(x-Xc) + (y-Yc)*(y-Yc) + (z-Zc)*(z-Zc)<= Rparticle*Rparticle ) p[0]=IndGGG;//1./(n2*n2);
 //    if( (z-Zc)*(z-Zc)<= Rparticle*Rparticle ) p[0]=IndGold;//1./(n2*n2);
     else p[0]=IndAir;
+
+    p[0]=IndAir;
 /*    bool isGold=0;
     int nperiod=0;
     for (nperiod=0;nperiod<8; nperiod++) { isGold = isGold || 
