@@ -135,9 +135,10 @@ __device__ inline static int get_mat_indev(int ix, int iy, int iz) {
    const ftype R5=4.0;
    //if(z<0.150/pow((x-Xc)/2,8)+4) return IndAg;
    if(x<(Npmlx*NDT+100)*dx/2 || x>Np*NDT*dx-(Npmlx*NDT+100)*dx/2 || y<(Npmly*NDT+100)*dy/2 || y>Na*NasyncNodes*NDT*dy-(Npmly*NDT+100)*dy/2) return IndOrg;
-   z-=0.150f; if(z<0) return IndAg;
-   z-=0.180f; if(z<0) return IndOrg;
-   z-=0.100f; if(z<0) return IndITO;
+   ftype shift =1e-5f;
+   z-=0.150f-shift; if(z<0) return IndAg;
+   z-=0.180f+shift; if(z<0) return IndOrg;
+   z-=0.100f+shift; if(z<0) return IndITO;
    return IndGlass;
 }
 #define TEXCOFFS(nind,xt,yt,z,I,h)  ;

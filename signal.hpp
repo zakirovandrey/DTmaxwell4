@@ -72,14 +72,13 @@ struct DipoleTFSF{
     ftype3 ds = make_ftype3(0.0,0.0,src.w*  cos(phase)*0.5-0.5*src.w*cos(phase)*cos(phase*src.kEnv)+0.5*sin(phase)*src.w*src.kEnv*sin(phase*src.kEnv));
     ftype3 dss= make_ftype3(0.0,0.0,-src.w*src.w*sin(phase)*0.5+0.5*src.w*src.w*sin(phase)*cos(phase*src.kEnv)+0.5*src.w*cos(phase)*src.w*src.kEnv*sin(phase*src.kEnv)+0.5*src.w*cos(phase)*src.w*src.kEnv*sin(phase*src.kEnv)+0.5*sin(phase)*src.w*src.kEnv*src.w*src.kEnv*cos(phase*src.kEnv));
 
-    //d*=   (phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1;
-    //ds*=  (phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1;
-    //dss*= (phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1;
-
-    d.z   = EnvelopeTime(t-R/c);
+    d*=   (phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1;
+    ds*=  (phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1;
+    dss*= (phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1;
+    /*d.z   = EnvelopeTime(t-R/c);
     ds.z  = EnvelopeDiv1(t-R/c);
     dss.z = EnvelopeDiv2(t-R/c);
-    if(fabs(t-R/c-src.t0)>src.T) { d.z=0; ds.z=0; dss.z=0; }
+    if(fabs(t-R/c-src.t0)>src.T) { d.z=0; ds.z=0; dss.z=0; }*/
     
     //E = (3*n*dot(n,d)-d)/(R*R*R) + (3*n*dot(n,ds)-ds)/(c*R*R) + (n*dot(n,dss)-dss)/(c*c*R);
     //B = cross(n, E+d/(R*R*R));
@@ -104,7 +103,7 @@ void TFSFsrc::set(const double LightSpeed, const double lmb) {
     wavelength=lmb;//2*0.8940637561158599;
     k=2*M_PI/wavelength;
     w=c*k;
-    Omega = 0.1*w;
+    Omega = 0.05*w;
     kEnv=Omega/w;
     theta=0.2*M_PI/2.; phi=20/180.0*M_PI;//M_PI/30.;
     theta=0+M_PI; phi=M_PI/2;
@@ -154,8 +153,8 @@ __device__ __noinline__ bool inSF(const int _s, const int _a, const int _v) {
   ftype s = _s*0.5*dx, a=(_a)*0.5*dy, v=_v*0.5*dz;
   if(dz==FLT_MAX) v=FLT_MAX/2; 
   //return !(s>tfsfSm && s<tfsfSp && a>tfsfAm && a<tfsfAp && v>tfsfVm && v<tfsfVp); 
-  //bool into = (s>src.BoxMs && s<src.BoxPs && a>src.BoxMa && a<src.BoxPa && v>src.BoxMv && v<src.BoxPv); 
-  bool into = (s-src.srcXs)*(s-src.srcXs)+(a-src.srcXa)*(a-src.srcXa)+(v-src.srcXv)*(v-src.srcXv)<=src.sphR*src.sphR; 
+  bool into = (s>src.BoxMs && s<src.BoxPs && a>src.BoxMa && a<src.BoxPa && v>src.BoxMv && v<src.BoxPv); 
+  //bool into = (s-src.srcXs)*(s-src.srcXs)+(a-src.srcXa)*(a-src.srcXa)+(v-src.srcXv)*(v-src.srcXv)<=src.sphR*src.sphR; 
   return into;
 }
 __device__ ftype  SrcTFSF_Sx(const int s, const int v, const int a,  const ftype tt) {return 0;};

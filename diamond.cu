@@ -499,5 +499,6 @@ int calcStep(){
   #endif
   parsHost.iStep++;
   copy2dev(parsHost, pars);
+  fflush(stdout);
   return 0; 
 }

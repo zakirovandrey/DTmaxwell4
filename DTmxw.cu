@@ -443,6 +443,7 @@ void GeoParamsHost::set(){
   dataPMLs = new DiamondRagPML[Npmlx*Na]; memset(dataPMLs, 0, Npmlx*Na*sizeof(DiamondRagPML));
   #endif
   #endif
+  fflush(stdout);
   //size_t size_rdma = sizeof(DiamondRag)*(NDT*NDT/2+1);
   size_t size_rdma = szBuf;
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_send_buf, size_rdma ) );
