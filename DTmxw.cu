@@ -412,6 +412,7 @@ void GeoParamsHost::set(){
   const int Nn = mapNodeSize[node];
   #if 1//USE_WINDOW
   printf("Allocating RAM memory on node %d: %g Gb\n", node, (Nn*Na*sizeof(DiamondRag)+Nn*Na*sizeof(ModelRag)+Nn*Na*sizeof(DiamondRagDisp)+Nn*Npmly*sizeof(DiamondRagPML)+Npmlx*Na*sizeof(DiamondRagPML))/(1024.*1024.*1024.));
+  fflush(stdout);
   #if USE_UVM==2
   #ifdef SWAP_DATA
   char swapdata[256]; sprintf(swapdata, "%s/swapdata.%d.%d", swap_dir->c_str(), node,subnode);
@@ -526,16 +527,20 @@ void init_index() {
   int X0=int(round(Xdip/dx));
   int Y0=int(round(Ydip/dy));
   int Z0=int(round(0.150/dz));
+  int xL=0; for(int inode=0; inode<parsHost.node; inode++) xL+= mapNodeSize[inode]; xL-= Ns*parsHost.node;
+  int xR = xL+mapNodeSize[parsHost.node];
   for(double xsen=0.0; xsen<Np*NDT*dx/2; xsen+=1.0) {
     int xcrd = X0+int(round(xsen/dx));
-    parsHost.sensors->push_back(Sensor("Ex",xcrd,Y0,Z0));
-    parsHost.sensors->push_back(Sensor("Ey",xcrd,Y0,Z0));
-    parsHost.sensors->push_back(Sensor("Ez",xcrd,Y0,Z0));
-    parsHost.sensors->push_back(Sensor("Hx",xcrd,Y0,Z0));
-    parsHost.sensors->push_back(Sensor("Hy",xcrd,Y0,Z0));
-    parsHost.sensors->push_back(Sensor("Hz",xcrd,Y0,Z0));
+    if(xcrd>=xL*NDT && xcrd<xR*NDT && Y0>=parsHost.subnode*Na*NDT && Y0<parsHost.subnode*Na*NDT+Na*NDT) {
+      parsHost.sensors->push_back(Sensor("Ex",xcrd,Y0-parsHost.subnode*Na*NDT,Z0));
+      parsHost.sensors->push_back(Sensor("Ey",xcrd,Y0-parsHost.subnode*Na*NDT,Z0));
+      parsHost.sensors->push_back(Sensor("Ez",xcrd,Y0-parsHost.subnode*Na*NDT,Z0));
+      parsHost.sensors->push_back(Sensor("Hx",xcrd,Y0-parsHost.subnode*Na*NDT,Z0));
+      parsHost.sensors->push_back(Sensor("Hy",xcrd,Y0-parsHost.subnode*Na*NDT,Z0));
+      parsHost.sensors->push_back(Sensor("Hz",xcrd,Y0-parsHost.subnode*Na*NDT,Z0));
+    }
   }
-  for(double ysen=1.0; ysen<Na*NDT*dy/2; ysen+=1.0) {
+  /*for(double ysen=1.0; ysen<Na*NDT*dy/2; ysen+=1.0) {
     int ycrd = Y0+int(round(ysen/dy));
     parsHost.sensors->push_back(Sensor("Ex",X0,ycrd,Z0));
     parsHost.sensors->push_back(Sensor("Ey",X0,ycrd,Z0));
@@ -543,7 +548,7 @@ void init_index() {
     parsHost.sensors->push_back(Sensor("Hx",X0,ycrd,Z0));
     parsHost.sensors->push_back(Sensor("Hy",X0,ycrd,Z0));
     parsHost.sensors->push_back(Sensor("Hz",X0,ycrd,Z0));
-  }
+  }*/
 
   parsHost.sensors_set_rag();
 
