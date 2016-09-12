@@ -135,8 +135,13 @@ __device__ inline static int get_mat_indev(int ix, int iy, int iz) {
    const ftype R5=4.0;
    //if(z<0.150/pow((x-Xc)/2,8)+4) return IndAg;
    if(x<(Npmlx*NDT+100)*dx/2 || x>Np*NDT*dx-(Npmlx*NDT+100)*dx/2 || y<(Npmly*NDT+100)*dy/2 || y>Na*NasyncNodes*NDT*dy-(Npmly*NDT+100)*dy/2) return IndOrg;
+   ftype period=0.4;
+   ftype rad=0.1;
+   ftype height=0.1;
+   ftype xr = x-Xc - round((x-Xc)/period)*period;
+   ftype yr = y-Yc - round((y-Yc)/period)*period;
    ftype shift =1e-5f;
-   z-=0.150f-shift; if(z<0) return IndAg;
+   z-=0.150f-shift; if(z<0) { if(z>-height && xr*xr+yr*yr<rad*rad) return IndOrg; else return IndAg; }
    z-=0.180f+shift; if(z<0) return IndOrg;
    z-=0.100f+shift; if(z<0) return IndITO;
    return IndGlass;
@@ -169,11 +174,11 @@ extern texture<char, cudaTextureType3D> index_tex;
 #endif//USE_TEX_2D
 #endif//COFFS_DEFAULT
 #ifdef COFFS_IN_DEVICE
-#define TEXCOFFVx(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z); ArrcoffV[nind] = coffs[index].depsXX; AnisoE[nind] = coffs[index];
-#define TEXCOFFVy(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z); ArrcoffV[nind] = coffs[index].depsYY; AnisoE[nind] = coffs[index];
-#define TEXCOFFVz(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z); ArrcoffV[nind] = coffs[index].depsZZ; AnisoE[nind] = coffs[index];
-#define ISDISP(xt,yt,z)               coffs[get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z)].isDisp
-#define TEXCOFFDISP(xt,yt,z)      DispCoffs[get_mat_indev(GLOBAL(xt), (yt+iy*2*NDT+Na*2*NDT)%(Na*2*NDT), z)]
+#define TEXCOFFVx(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+phys_iy*2*NDT+Na*NasyncNodes*2*NDT)%(Na*NasyncNodes*2*NDT), z); ArrcoffV[nind] = coffs[index].depsXX; AnisoE[nind] = coffs[index];
+#define TEXCOFFVy(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+phys_iy*2*NDT+Na*NasyncNodes*2*NDT)%(Na*NasyncNodes*2*NDT), z); ArrcoffV[nind] = coffs[index].depsYY; AnisoE[nind] = coffs[index];
+#define TEXCOFFVz(nind,xt,yt,z,I,h) index = get_mat_indev(GLOBAL(xt), (yt+phys_iy*2*NDT+Na*NasyncNodes*2*NDT)%(Na*NasyncNodes*2*NDT), z); ArrcoffV[nind] = coffs[index].depsZZ; AnisoE[nind] = coffs[index];
+#define ISDISP(xt,yt,z)               coffs[get_mat_indev(GLOBAL(xt), (yt+phys_iy*2*NDT+Na*NasyncNodes*2*NDT)%(Na*NasyncNodes*2*NDT), z)].isDisp
+#define TEXCOFFDISP(xt,yt,z)      DispCoffs[get_mat_indev(GLOBAL(xt), (yt+phys_iy*2*NDT+Na*NasyncNodes*2*NDT)%(Na*NasyncNodes*2*NDT), z)]
 #endif//COFFS_IN_DEVICE
 
 #ifdef BLOCH_BND_Y
