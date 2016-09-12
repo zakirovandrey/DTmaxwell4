@@ -151,6 +151,8 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     if(is_X[idev]    && even==1 && Npmly!=0) IFPMLS(torreXs1   ,1          ,Nth,0,stX       ,ttX       ,(ix,Xy        ,iz,iz+Nw,Nt,t0))
     if(is_P[idev]    && even==0            ) IFPMLS(torreD0    ,1          ,Nth,0,stP       ,ttP       ,(ix,Xy        ,iz,iz+Nw,Nt,t0))
     if(is_P[idev]    && even==1            ) IFPMLS(torreD1    ,1          ,Nth,0,stP       ,ttP       ,(ix,Iy        ,iz,iz+Nw,Nt,t0))
+    if(is_P[idev]    && even==0            ) bufsave<0><<<(Nv+Nw-1)/Nw,Nw,0,stP       >>>(ix,Xy        ,Nt,t0);
+    if(is_P[idev]    && even==1            ) bufsave<1><<<(Nv+Nw-1)/Nw,Nw,0,stP       >>>(ix,Iy        ,Nt,t0);
     if(is_Sb[idev]   && even==0            ) IFPMLS(torreS0    ,SybBlk     ,Nth,0,stPMLbot  ,ttPMLbot  ,(ix,Syb       ,iz,iz+Nw,Nt,t0))
     if(is_Sb[idev]   && even==1            ) IFPMLS(torreS1    ,SybBlk     ,Nth,0,stPMLbot  ,ttPMLbot  ,(ix,Syb       ,iz,iz+Nw,Nt,t0))
     if(is_St[idev]   && even==0            ) IFPMLS(torreS0    ,SytBlk     ,Nth,0,stPMLtop  ,ttPMLtop  ,(ix,Syt       ,iz,iz+Nw,Nt,t0))
