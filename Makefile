@@ -108,7 +108,7 @@ _DTmxw.so: DTmxw_wrap.o cudaDTmxw.so spacemodel/src/space_model.o spacemodel/src
 	$(GCC) $(INCLUDES) $(CCFLAGS) -Wl,-rpath=./ -L./ $(LDFLAGS) $< cudaDTmxw.so -o $@ -shared
 else
 _DTmxw.so: DTmxw_wrap.o cudaDTmxw.so 
-	$(GCC) $(INCLUDES) $(CCFLAGS) -L./ $(LDFLAGS) $< cudaDTmxw.so -o $@ -shared
+	$(GCC) $(INCLUDES) $(CCFLAGS) -Wl,-rpath=./ -L./ $(LDFLAGS) $< cudaDTmxw.so -o $@ -shared
 endif
 
 build: DTmxw _DTmxw.so
