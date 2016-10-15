@@ -82,7 +82,7 @@ extern struct TFSFsrc{
 
   ftype t0,tw,T;
 
-  void set(const double, const double);
+  void set(const double, const double, const double);
   void check();
 } shotpoint;
 
