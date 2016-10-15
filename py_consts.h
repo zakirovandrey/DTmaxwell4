@@ -78,6 +78,7 @@ extern struct TFSFsrc{
   ftype wavelength, w,k, Omega, kEnv, theta, phi;
   //-------------------------------------------//
   ftype cSrc;
+  ftype Imp;
 
   ftype t0,tw,T;
 
