@@ -32,11 +32,11 @@ struct PlaneTFSF{
     ftype gaussEnv = expf(-(y-Yc)*(y-Yc)/(waist*waist));//-(z-Zc)*(z-Zc)/(0.3*Zc*0.3*Zc));
     //if (fabs(gaussEnv)<1.e-4 || z>(src.BoxMv+src.BoxPv)*0.5*10) gaussEnv=0;
     if (z<(src.BoxMv+src.BoxPv)*0.5) gaussEnv=0;
-    Ephi   =  A*((phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1)*0.5*(1-cosf(phase*src.kEnv))*sinf(phase)*gaussEnv;
-    Htheta = -A*((phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1)*0.5*(1-cosf(phase*src.kEnv))*sinf(phase)*gaussEnv;
+    Ephi   = src.Imp*A*((phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1)*0.5*(1-cosf(phase*src.kEnv))*sinf(phase)*gaussEnv;
+    Htheta =        -A*((phase*src.kEnv<0 || phase*src.kEnv>2*M_PI)?0:1)*0.5*(1-cosf(phase*src.kEnv))*sinf(phase)*gaussEnv;
     if(0 && phase*src.kEnv>M_PI){ 
-      Ephi   =  A*sinf(phase)*gaussEnv;
-      Htheta = -A*sinf(phase)*gaussEnv;
+      Ephi   = src.Imp*A*sinf(phase)*gaussEnv;
+      Htheta =      -A*sinf(phase)*gaussEnv;
     }
     Etheta=0; Hphi=0; Er=0; Hr=0;
     //if(phase>0) printf("kz=%g phase=%g %g %g %g %g\n", kz, phase, _x,_y,_z,_t);
@@ -96,8 +96,9 @@ struct DipoleTFSF{
   __device__ inline ftype getHz() { return B.z; }
 };
 
-void TFSFsrc::set(const double LightSpeed, const double lmb) {
+void TFSFsrc::set(const double LightSpeed, const double impedance, const double lmb) {
     double c=LightSpeed;
+    Imp=impedance;
     V_max=c;
     cSrc = c;
     wavelength=lmb;//2*0.8940637561158599;
