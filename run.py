@@ -30,7 +30,7 @@ boxDiagLength=sqrt((SS.BoxPs-SS.BoxMs)**2+(SS.BoxPa-SS.BoxMa)**2+(SS.BoxMv-SS.Bo
 #boxDiagLength=SS.sphR
 cL=1.0/1.75
 
-SS.set(cL,0.5*cL)
+SS.set(cL,cL,0.5*cL)
 
 SS.tStop = boxDiagLength/cL+8/(SS.w/2)+10*dt # 5000*dt; # ((BoxPs-BoxMs)+(BoxPa-BoxMa)+(BoxMv-BoxPv))/c+2*M_PI/Omega;
 SS.tStop = boxDiagLength/cL+SS.T+SS.t0+10*dt
