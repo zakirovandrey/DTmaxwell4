@@ -60,10 +60,14 @@ const int Na=NA;
 const int Nv=NV;
 
 const int Ntime=NTIME;
+#ifdef SPLIT_ZFORM
 #ifdef USE_DOUBLE
 const int NzMax=(NV<384)?NV:384;
 #else
 const int NzMax=(NV<768)?NV:768;
+#endif
+#else
+const int NzMax=NV;
 #endif
 
 #if NDev==1
