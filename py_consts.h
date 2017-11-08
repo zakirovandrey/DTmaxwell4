@@ -58,7 +58,11 @@ const int NyBloch=1;//200;
 #define USE_TEX_2D
 #undef USE_TEX_2D
 
+#ifdef SPLIT_ZFORM
 const int Nzw=128;
+#else
+const int Nzw=NV;
+#endif
 
 const int Npmlx=2*5;//2*1;//2*24;
 const int Npmly=2*5;//2*0;//24;
