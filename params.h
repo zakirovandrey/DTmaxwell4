@@ -76,9 +76,21 @@ const int NzMax=NV;
 #elif NDev==2
 #define Nstrp0 (NA/2 DYSH)
 #define STRIPES {Nstrp0,NA-Nstrp0}
-#else
-//#define Nstrp0 (NA/3 )
+#elif NDev==3
 #define STRIPES {NA/3,NA/3,NA-NA/3-NA/3}
+#elif NDev==4
+#define STRIPES {NA/4,NA/4,NA/4,NA-NA/4*3}
+#elif NDev==5
+#define STRIPES {NA/5,NA/5,NA/5,NA/5,NA-NA/5*4}
+#elif NDev==6
+#define STRIPES {NA/6,NA/6,NA/6,NA/6,NA/6,NA-NA/6*5}
+#elif NDev==7
+#define STRIPES {NA/7,NA/7,NA/7,NA/7,NA/7,NA/7,NA-NA/7*6}
+#elif NDev==8
+#define STRIPES {NA/8,NA/8,NA/8,NA/8,NA/8,NA/8,NA/8,NA-NA/8*7}
+#else
+#error "Error: NDev must be <= 8"
+//static_assert(NDev<=8, "Error: NDev max = 8");  // c++11
 #endif
 
 //static_assert(NX>=WX, "Error: NX<=Window size");  // c++11
